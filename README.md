@@ -1,2 +1,2 @@
 # BuylanBox
-An Application for manage phone
+An Application for manage Android
