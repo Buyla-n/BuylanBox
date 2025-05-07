@@ -16,6 +16,8 @@
 package com.buyla.application.parser.axml.code.res
 
 import java.io.IOException
+import java.nio.charset.StandardCharsets
+
 
 /**
  * @author Dmitry Skiba (original Java version)
@@ -28,34 +30,71 @@ import java.io.IOException
  */
 class StringBlock private constructor() {
 	private var mStringOffsets: IntArray? = null
-	private var mStrings: IntArray? = null
+	private lateinit var mStrings: IntArray
 	private var mStyleOffsets: IntArray? = null
 	private var mStyles: IntArray? = null
-
-	/**
-	 * Returns number of strings in block.
-	 */
-	val count: Int
-		get() = mStringOffsets?.size ?: 0
+	// To fix utf problem
+	private var isUtf8: Boolean = false
 
 	/**
 	 * Returns raw string (without any styling information) at specified index.
+	 * Fixed utf 8 to 16LE problem
 	 */
 	fun getString(index: Int): String? {
 		if (index < 0 || mStringOffsets == null || index >= mStringOffsets!!.size) {
 			return null
 		}
-		val offset = mStringOffsets!![index]
-		val length = getShort(mStrings!!, offset)
-		val result = StringBuilder(length)
-		var currentOffset = offset
-		var remainingLength = length
-		while (remainingLength != 0) {
-			currentOffset += 2
-			result.append(getShort(mStrings!!, currentOffset).toChar())
-			remainingLength--
+		val offset: Int = mStringOffsets!![index]
+		var length = getStringLength(mStrings, offset)
+		val lengthFieldSize = offset + getLengthFieldSize(mStrings, offset)
+		val charset = if (this.isUtf8) StandardCharsets.UTF_8 else StandardCharsets.UTF_16LE
+		if (!this.isUtf8) {
+			length = length shl 1
 		}
-		return result.toString()
+		val originalString =
+			String(getByteArray(mStrings, lengthFieldSize, length), 0, length, charset)
+		return originalString
+	}
+
+	private fun getStringLength(array: IntArray?, offset: Int): Int {
+		var offset = offset
+		if (!this.isUtf8) {
+			val value = getShort(array!!, offset)
+			if ((32768 and value) != 0) {
+				return getShort(array, offset + 2) or ((value and 32767) shl 16)
+			}
+			return value
+		}
+		if ((getByte(array!!, offset) and 128) != 0) {
+			offset++
+		}
+		val nextOffset = offset + 1
+		val byte1: Int = getByte(array, nextOffset).toInt()
+		return if ((byte1 and 128) != 0) ((byte1 and 127) shl 8) or getByte(
+			array,
+			nextOffset + 1
+		).toInt() else byte1
+	}
+
+	private fun getByteArray(array: IntArray, offset: Int, length: Int): ByteArray {
+		val bytes = ByteArray(length)
+		for (i in 0..<length) {
+			bytes[i] = getByte(array, offset + i).toByte()
+		}
+		return bytes
+	}
+
+	// Determines the size of the length field based on the encoding
+	private fun getLengthFieldSize(array: IntArray?, offset: Int): Int {
+		if (!this.isUtf8) {
+			return if ((32768 and getShort(array!!, offset)) != 0) 4 else 2
+		}
+		val size = if ((getByte(array!!, offset) and 128) != 0) 2 + 1 else 2
+		return if ((getByte(array, offset) and 128) != 0) size + 1 else size
+	}
+
+	private fun getByte(iArr: IntArray, i: Int): Int {
+		return (iArr[i / 4] ushr ((i % 4) * 8)) and 255
 	}
 
 	/**
@@ -64,53 +103,6 @@ class StringBlock private constructor() {
 	 * Returns string with style information (if any).
 	 */
 	operator fun get(index: Int): CharSequence? = getString(index)
-
-	/**
-	 * Returns string with style tags (html-like).
-	 */
-	fun getHTML(index: Int): String? {
-		val raw = getString(index) ?: return null
-		val style = getStyle(index) ?: return raw
-
-		val html = StringBuilder(raw.length + 32)
-		var offset = 0
-
-		while (true) {
-			var i = -1
-			for (j in style.indices step 3) {
-				if (style[j + 1] == -1) continue
-				if (i == -1 || style[i + 1] > style[j + 1]) {
-					i = j
-				}
-			}
-
-			val start = if (i != -1) style[i + 1] else raw.length
-
-			for (j in style.indices step 3) {
-				var end = style[j + 2]
-				if (end == -1 || end >= start) continue
-
-				if (offset <= end) {
-					html.append(raw, offset, end + 1)
-					offset = end + 1
-				}
-				style[j + 2] = -1
-				html.append("</${getString(style[j])}>")
-			}
-
-			if (offset < start) {
-				html.append(raw, offset, start)
-				offset = start
-			}
-
-			if (i == -1) break
-
-			html.append("<${getString(style[i])}>")
-			style[i + 1] = -1
-		}
-
-		return html.toString()
-	}
 
 	/**
 	 * Finds index of the string.
@@ -127,7 +119,7 @@ class StringBlock private constructor() {
 			var j = 0
 			while (j < length) {
 				offset += 2
-				if (string[j] != getShort(mStrings!!, offset).toChar()) break
+				if (string[j] != getShort(mStrings, offset).toChar()) break
 				j++
 			}
 
@@ -179,17 +171,19 @@ class StringBlock private constructor() {
 		 * Stream must be at the chunk type.
 		 */
 		@JvmStatic
+		@Throws(IOException::class)
 		fun read(reader: IntReader): StringBlock {
 			ChunkUtil.readCheckType(reader, CHUNK_TYPE)
 			val chunkSize = reader.readInt()
 			val stringCount = reader.readInt()
 			val styleOffsetCount = reader.readInt()
-			reader.readInt() // Unknown value (skipped)
+			val flags = reader.readInt()
 			val stringsOffset = reader.readInt()
 			val stylesOffset = reader.readInt()
 
 			val block = StringBlock()
 			block.mStringOffsets = reader.readIntArray(stringCount)
+			block.isUtf8 = (flags and 256) != 0
 
 			if (styleOffsetCount != 0) {
 				block.mStyleOffsets = reader.readIntArray(styleOffsetCount)
@@ -200,7 +194,6 @@ class StringBlock private constructor() {
 				throw IOException("String data size is not multiple of 4 ($stringsSize).")
 			}
 			block.mStrings = reader.readIntArray(stringsSize / 4)
-
 			if (stylesOffset != 0) {
 				val stylesSize = chunkSize - stylesOffset
 				if (stylesSize % 4 != 0) {
@@ -208,7 +201,6 @@ class StringBlock private constructor() {
 				}
 				block.mStyles = reader.readIntArray(stylesSize / 4)
 			}
-
 			return block
 		}
 

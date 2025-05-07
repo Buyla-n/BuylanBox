@@ -43,8 +43,6 @@ interface AttributeSet {
     fun getAttributeIntValue(namespace: String?, attribute: String, defaultValue: Int): Int
     fun getAttributeUnsignedIntValue(namespace: String?, attribute: String, defaultValue: Int): Int
     fun getAttributeFloatValue(namespace: String?, attribute: String, defaultValue: Float): Float
-
-    //TODO: remove
     fun getAttributeValueType(index: Int): Int
     fun getAttributeValueData(index: Int): Int
 }

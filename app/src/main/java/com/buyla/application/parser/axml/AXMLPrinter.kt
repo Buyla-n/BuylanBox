@@ -38,7 +38,7 @@ fun main(args: Array<String>): String {
 		val parser = AXmlResourceParser()
 		val startTime = System.currentTimeMillis()  // 记录开始时间
 		parser.open(FileInputStream(args[0]))
-		buildString {
+		return buildString {
 			var indent = ""
 			val indentStep = "    "
 
@@ -122,7 +122,7 @@ private val RADIX_MULTS = floatArrayOf(
 		0.00390625F, 3.051758E-005F, 1.192093E-007F, 4.656613E-010F
 )
 private val DIMENSION_UNITS = arrayOf(
-		"px", "dip", "sp", "pt", "in", "mm", "", ""
+		"px", "dp", "sp", "pt", "in", "mm", "", ""
 )
 private val FRACTION_UNITS = arrayOf(
 		"%", "%p", "", "", "", "", "", ""

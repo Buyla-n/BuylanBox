@@ -15,28 +15,34 @@
  */
 package com.buyla.application.parser.axml.code.res;
 
+import androidx.annotation.NonNull;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.Reader;
+
+import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
+
+import com.buyla.application.parser.axml.util.AttributeSet;
 import com.buyla.application.parser.axml.util.TypedValue;
 
 /**
  * @author Dmitry Skiba
- * 
+ * <p>
  * Binary xml files parser.
- * 
+ * <p>
  * Parser has only two states:
  * (1) Operational state, which parser obtains after first successful call
  * to next() and retains until open(), close(), or failed call to next().
  * (2) Closed state, which parser obtains after open(), close(), or failed
  * call to next(). In this state methods return invalid values or throw exceptions.
- * 
+ * <p>
  * TODO:
  * 	* check all methods in closed state
  *
  */
-public class AXmlResourceParser implements XmlResourceParser {
+public class AXmlResourceParser implements XmlPullParser, AttributeSet {
 	
 	public AXmlResourceParser() {
 		resetEventInfo();
@@ -168,6 +174,7 @@ public class AXmlResourceParser implements XmlResourceParser {
 		return m_strings.getString(prefix);
 	}
 	
+	@NonNull
 	public String getPositionDescription() {
 		return "XML line #"+getLineNumber();
 	}

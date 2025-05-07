@@ -6,23 +6,18 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -36,8 +31,9 @@ import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -48,10 +44,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.buyla.application.parser.axml.AXMLPrinter
@@ -61,7 +58,6 @@ import kotlinx.coroutines.launch
 import java.io.BufferedReader
 import java.io.File
 import java.io.InputStreamReader
-import kotlin.math.roundToInt
 
 class TextEditor : ComponentActivity() {
     private lateinit var filePath: String
@@ -97,6 +93,18 @@ class TextEditor : ComponentActivity() {
 
         var isLoading by remember { mutableStateOf(true) }
 
+        val density = LocalDensity.current
+
+        // 记录 TextField 的实时高度（像素）
+        var textFieldHeightPx by remember { mutableIntStateOf(0) }
+
+        // 计算可滚动范围（总高度 - 视口高度）
+        val viewportHeight = with(density) {
+            (LocalConfiguration.current.screenHeightDp.dp - 80.dp) .toPx()
+        }
+        val totalScrollRange = remember(textFieldHeightPx) {
+            (textFieldHeightPx - viewportHeight).coerceAtLeast(0f)
+        }
         // 异步读取文件内容
 
         Scaffold(
@@ -150,6 +158,7 @@ class TextEditor : ComponentActivity() {
                     }
                 }
             }
+            var sliderValue by remember { mutableFloatStateOf(0f) }
             AnimatedContent(
                 targetState = isLoading,
                 contentAlignment = Alignment.Center
@@ -165,29 +174,30 @@ class TextEditor : ComponentActivity() {
                                 .padding(innerPadding)
                         ) {
                             Row {
-                                val lineCount =
-                                    remember { derivedStateOf { text.count { it == '\n' } + 1 } }
+//                                val lineCount =
+//                                    remember { derivedStateOf { text.count { it == '\n' } + 1 } }
 
-                                Column(
-                                    modifier = Modifier
-                                        .width(30.dp)  // 行号列宽度
-                                        .fillMaxHeight()
-                                        .verticalScroll(state = scrollState)
-                                        .padding(end = 4.dp),
-                                    verticalArrangement = Arrangement.Top
-                                ) {
-                                    repeat(lineCount.value) { index ->
-                                        Text(
-                                            text = "${index + 1}",
-                                            modifier = Modifier.fillMaxWidth(),
-                                            textAlign = TextAlign.End,
-                                            color = Color.Gray,
-                                            fontSize = 12.sp,
-                                            maxLines = 1,
-                                            lineHeight = 20.sp
-                                        )
-                                    }
-                                }
+//                                Column(
+//                                    modifier = Modifier
+//                                        .width(30.dp)  // 行号列宽度
+//                                        .fillMaxHeight()
+//                                        .verticalScroll(state = scrollState)
+//                                        .padding(end = 4.dp),
+//                                    verticalArrangement = Arrangement.Top
+//                                ) {
+//
+////                                    repeat(lineCount.value) { index ->
+////                                        Text(
+////                                            text = "${index + 1}",
+////                                            modifier = Modifier.fillMaxWidth(),
+////                                            textAlign = TextAlign.End,
+////                                            color = Color.Gray,
+////                                            fontSize = 12.sp,
+////                                            maxLines = 1,
+////                                            lineHeight = 20.sp
+////                                        )
+////                                    }
+//                                }
                                 LazyColumn(
                                     state = lazyListState
                                 ) {
@@ -197,29 +207,35 @@ class TextEditor : ComponentActivity() {
                                             onValueChange = { text = it },
                                             modifier = Modifier
                                                 .fillMaxSize()
+                                                .padding(start = 16.dp)
+                                                .onSizeChanged { size ->
+                                                    textFieldHeightPx = size.height // 实时更新高度
+                                                }
                                                 .horizontalScroll(state = rememberScrollState()),
                                             textStyle = TextStyle(lineHeight = 20.sp)
                                         )
                                     }
                                 }
-                                LaunchedEffect(lazyListState) {
-                                    snapshotFlow { lazyListState.firstVisibleItemScrollOffset }.collect { offset ->
-                                        scrollState.scrollTo(offset)
-                                    }
+
+
+                                LaunchedEffect(lazyListState, totalScrollRange) {
+                                    snapshotFlow { lazyListState.firstVisibleItemScrollOffset.toFloat() }
+                                        .collect { offset ->
+                                            sliderValue = if (totalScrollRange > 0) {
+                                                (offset.toFloat() / totalScrollRange * 100f).coerceIn(0f, 100f)
+                                            } else 0f
+                                        }
                                 }
                             }
                             Slider(
-                                value = scrollState.value.toFloat(),
+                                value = sliderValue,
                                 onValueChange = {
                                     coroutineScope.launch {
-                                        scrollState.scrollTo(it.roundToInt())
-                                        val currentOffset = lazyListState.firstVisibleItemIndex +
-                                                lazyListState.firstVisibleItemScrollOffset
-                                        val scrollDelta = it - currentOffset
-                                        lazyListState.scrollBy((scrollDelta).toFloat()) // 使用 scrollBy 滚动
+                                        val targetOffset = (it / 100f * totalScrollRange).toInt()
+                                        lazyListState.scrollToItem(0, targetOffset)
                                     }
                                 },
-                                valueRange = 0f..scrollState.maxValue.toFloat(),
+                                valueRange = 0f..100f,
                                 modifier = Modifier
                                     .rotate(if (configuration.orientation == 1) 90f else 0f)  // 旋转90度使其垂直
                                     .align(Alignment.CenterEnd)

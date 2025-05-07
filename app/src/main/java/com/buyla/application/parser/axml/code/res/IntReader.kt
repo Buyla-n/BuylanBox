@@ -48,19 +48,6 @@ class IntReader(private var stream: InputStream?, private var bigEndian: Boolean
 		reset(null, false)
 	}
 
-	fun getStream(): InputStream? = stream
-
-	fun isBigEndian(): Boolean = bigEndian
-	fun setBigEndian(bigEndian: Boolean) {
-		this.bigEndian = bigEndian
-	}
-
-	@Throws(IOException::class)
-	fun readByte(): Int = readInt(1)
-
-	@Throws(IOException::class)
-	fun readShort(): Int = readInt(2)
-
 	@Throws(IOException::class)
 	fun readInt(): Int = readInt(4)
 
@@ -105,17 +92,6 @@ class IntReader(private var stream: InputStream?, private var bigEndian: Boolean
 	}
 
 	@Throws(IOException::class)
-	fun readByteArray(length: Int): ByteArray {
-		val array = ByteArray(length)
-		val read = stream?.read(array) ?: throw EOFException()
-		position += read
-		if (read != length) {
-			throw EOFException()
-		}
-		return array
-	}
-
-	@Throws(IOException::class)
 	fun skip(bytes: Int) {
 		if (bytes <= 0) {
 			return
@@ -129,9 +105,4 @@ class IntReader(private var stream: InputStream?, private var bigEndian: Boolean
 
 	@Throws(IOException::class)
 	fun skipInt() = skip(4)
-
-	@Throws(IOException::class)
-	fun available(): Int = stream?.available() ?: throw IOException("Stream is null")
-
-	fun getPosition(): Int = position
 }
