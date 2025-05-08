@@ -72,7 +72,6 @@ dependencies {
     implementation(libs.androidx.media3.exoplayer.v140)
     implementation(libs.androidx.media3.media3.ui)
     implementation(libs.androidx.window)
-    implementation(libs.lifecycle.service)
     implementation(libs.dev.api)
     implementation(libs.provider)
     implementation(libs.androidx.material.icons.core)

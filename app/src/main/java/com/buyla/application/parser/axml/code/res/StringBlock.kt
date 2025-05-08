@@ -16,7 +16,6 @@
 package com.buyla.application.parser.axml.code.res
 
 import java.io.IOException
-import java.nio.charset.StandardCharsets
 
 
 /**
@@ -29,12 +28,11 @@ import java.nio.charset.StandardCharsets
  * - implement get()
  */
 class StringBlock private constructor() {
-	private var mStringOffsets: IntArray? = null
+	private lateinit var mStringOffsets: IntArray
 	private lateinit var mStrings: IntArray
-	private var mStyleOffsets: IntArray? = null
-	private var mStyles: IntArray? = null
-	// To fix utf problem
-	private var isUtf8: Boolean = false
+	private lateinit var mStyleOffsets: IntArray
+	private lateinit var mStyles: IntArray
+	private var mConvert: Boolean = false
 
 	/**
 	 * Returns raw string (without any styling information) at specified index.
@@ -45,57 +43,39 @@ class StringBlock private constructor() {
 			return null
 		}
 		val offset: Int = mStringOffsets!![index]
-		var length = getStringLength(mStrings, offset)
-		val lengthFieldSize = offset + getLengthFieldSize(mStrings, offset)
-		val charset = if (this.isUtf8) StandardCharsets.UTF_8 else StandardCharsets.UTF_16LE
-		if (!this.isUtf8) {
+
+		var currentOffset = offset
+
+		var length = if (mConvert) {
+			if ((getByte(mStrings, offset) and 128) != 0) currentOffset++
+			val byte1 = getByte(mStrings, offset + 1).toInt()
+			if (byte1 and 128 != 0) (byte1 and 127 shl 8) or getByte(mStrings, offset + 2).toInt() else byte1
+		} else {
+			val value = getShort(mStrings, offset)
+			if (value and 32768 != 0) getShort(mStrings, offset + 2) or ((value and 32767) shl 16) else value
+		}
+
+		val lengthBlock = offset + if (mConvert) {
+			when {
+				getByte(mStrings, offset) and 128 == 0 -> 2
+				else -> 4
+			}
+		} else {
+			if (getShort(mStrings, offset) and 32768 == 0) 2 else 4
+		}
+
+		if (!mConvert) {
 			length = length shl 1
 		}
-		val originalString =
-			String(getByteArray(mStrings, lengthFieldSize, length), 0, length, charset)
-		return originalString
+
+		val bytes = ByteArray(length) { i ->
+			getByte(mStrings, lengthBlock + i).toByte()
+		}
+
+		return String(bytes, 0, length, if (mConvert) Charsets.UTF_8 else Charsets.UTF_16LE)
 	}
 
-	private fun getStringLength(array: IntArray?, offset: Int): Int {
-		var offset = offset
-		if (!this.isUtf8) {
-			val value = getShort(array!!, offset)
-			if ((32768 and value) != 0) {
-				return getShort(array, offset + 2) or ((value and 32767) shl 16)
-			}
-			return value
-		}
-		if ((getByte(array!!, offset) and 128) != 0) {
-			offset++
-		}
-		val nextOffset = offset + 1
-		val byte1: Int = getByte(array, nextOffset).toInt()
-		return if ((byte1 and 128) != 0) ((byte1 and 127) shl 8) or getByte(
-			array,
-			nextOffset + 1
-		).toInt() else byte1
-	}
-
-	private fun getByteArray(array: IntArray, offset: Int, length: Int): ByteArray {
-		val bytes = ByteArray(length)
-		for (i in 0..<length) {
-			bytes[i] = getByte(array, offset + i).toByte()
-		}
-		return bytes
-	}
-
-	// Determines the size of the length field based on the encoding
-	private fun getLengthFieldSize(array: IntArray?, offset: Int): Int {
-		if (!this.isUtf8) {
-			return if ((32768 and getShort(array!!, offset)) != 0) 4 else 2
-		}
-		val size = if ((getByte(array!!, offset) and 128) != 0) 2 + 1 else 2
-		return if ((getByte(array, offset) and 128) != 0) size + 1 else size
-	}
-
-	private fun getByte(iArr: IntArray, i: Int): Int {
-		return (iArr[i / 4] ushr ((i % 4) * 8)) and 255
-	}
+	private fun getByte(iArr: IntArray, i: Int) = (iArr[i shr 2] ushr ((i and 0x3) shl 3)) and 0xFF
 
 	/**
 	 * Not yet implemented.
@@ -136,31 +116,9 @@ class StringBlock private constructor() {
 	 *  * second int is tag start index in string
 	 *  * third int is tag end index in string
 	 */
+	@Deprecated(message = "Deprecated! deprecated in kotlin")
 	private fun getStyle(index: Int): IntArray? {
-		if (mStyleOffsets == null || mStyles == null || index >= mStyleOffsets!!.size) {
-			return null
-		}
-
-		val offset = mStyleOffsets!![index] / 4
-		var count = 0
-		var i = offset
-		while (i < mStyles!!.size) {
-			if (mStyles!![i] == -1) break
-			count++
-			i++
-		}
-
-		if (count == 0 || count % 3 != 0) return null
-
-		val style = IntArray(count)
-		i = offset
-		var j = 0
-		while (i < mStyles!!.size && j < style.size) {
-			if (mStyles!![i] == -1) break
-			style[j++] = mStyles!![i++]
-		}
-
-		return style
+		return null
 	}
 
 	companion object {
@@ -183,7 +141,7 @@ class StringBlock private constructor() {
 
 			val block = StringBlock()
 			block.mStringOffsets = reader.readIntArray(stringCount)
-			block.isUtf8 = (flags and 256) != 0
+			block.mConvert = (flags and 256) != 0
 
 			if (styleOffsetCount != 0) {
 				block.mStyleOffsets = reader.readIntArray(styleOffsetCount)

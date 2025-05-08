@@ -49,7 +49,7 @@ fun main(args: Array<String>): String {
 				}
 				when (type) {
 					XmlPullParser.START_DOCUMENT -> {
-						append("<?xml version=\"1.0\" encoding=\"utf-8\"?>\n")
+						//append("<?xml version=\"1.0\" encoding=\"utf-8\"?>\n")
 					}
 					XmlPullParser.START_TAG -> {
 						append("$indent<${getNamespacePrefix(parser.prefix)}${parser.name}")

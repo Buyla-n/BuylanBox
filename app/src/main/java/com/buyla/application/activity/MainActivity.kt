@@ -96,8 +96,8 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     fun MainApp(context: Context) {
-        var selectedItem by remember { mutableIntStateOf(0) }
-        val items = listOf("主页", "信息", "文件", "应用", "占位")
+        var selectedItem by remember { mutableIntStateOf(2) }
+        val items = listOf("卡片", "信息", "文件", "应用", "占位")
 
         val appPath = context.filesDir.absolutePath + "/extract_zip"
         val appFolder = File(appPath)

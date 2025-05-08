@@ -3,23 +3,34 @@ package com.buyla.application.activity
 import android.annotation.SuppressLint
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredWidthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.input.rememberTextFieldState
+import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.Redo
+import androidx.compose.material.icons.automirrored.rounded.Undo
+import androidx.compose.material.icons.rounded.Save
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -29,6 +40,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -49,6 +61,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.buyla.application.parser.axml.AXMLPrinter
@@ -82,30 +95,19 @@ class TextEditor : ComponentActivity() {
     }
 
     @SuppressLint("ClickableViewAccessibility")
-    @OptIn(ExperimentalMaterial3Api::class)
+    @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
     @Composable
     fun EditScreen(filePath: String) {
         val context = LocalContext.current
-        var text by remember { mutableStateOf("") }
-        var scrollState = rememberScrollState()
+        var textFieldState = rememberTextFieldState()
         val coroutineScope = rememberCoroutineScope()
         val configuration = LocalConfiguration.current
-
         var isLoading by remember { mutableStateOf(true) }
-
+        var showSaveDialog by remember { mutableStateOf(false) }
         val density = LocalDensity.current
-
-        // 记录 TextField 的实时高度（像素）
         var textFieldHeightPx by remember { mutableIntStateOf(0) }
-
-        // 计算可滚动范围（总高度 - 视口高度）
-        val viewportHeight = with(density) {
-            (LocalConfiguration.current.screenHeightDp.dp - 80.dp) .toPx()
-        }
-        val totalScrollRange = remember(textFieldHeightPx) {
-            (textFieldHeightPx - viewportHeight).coerceAtLeast(0f)
-        }
-        // 异步读取文件内容
+        val viewportHeight = with(density) { (LocalConfiguration.current.screenHeightDp.dp - 80.dp) .toPx() }
+        val totalScrollRange = remember(textFieldHeightPx) { (textFieldHeightPx - viewportHeight).coerceAtLeast(0f) }
 
         Scaffold(
             topBar = {
@@ -120,15 +122,51 @@ class TextEditor : ComponentActivity() {
                                     (context as? ComponentActivity)?.finish()
                             }) {
                                 Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                    imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
                                     contentDescription = "返回"
                                 )
                             }
 
                             Text(
-                                text = "文本编辑",
-                                modifier = Modifier.padding(start = 8.dp)
+                                text = File(filePath).name,
+                                modifier = Modifier.padding(start = 8.dp).requiredWidthIn(max = 130.dp),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
+
+                            Spacer(modifier = Modifier.weight(1f))
+
+                            IconButton(
+                                onClick = { textFieldState.undoState.undo() },
+                                enabled = textFieldState.undoState.canUndo
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Rounded.Undo,
+                                    contentDescription = null
+                                )
+                            }
+                            IconButton(
+                                onClick = { textFieldState.undoState.redo() },
+                                enabled = textFieldState.undoState.canRedo
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Rounded.Redo,
+                                    contentDescription = null
+                                )
+                            }
+
+                            IconButton(
+                                onClick = {
+                                    textFieldState.undoState.clearHistory()
+                                    SaveText(filePath, textFieldState.text.toString())
+                                },
+                                enabled = textFieldState.undoState.canUndo
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Save,
+                                    contentDescription = null
+                                )
+                            }
                         }
                     },
                     actions = {
@@ -140,7 +178,7 @@ class TextEditor : ComponentActivity() {
                 coroutineScope.launch {
                     if (!filePath.endsWith("xml")) {
                         if (!isSuperUser) {
-                            text = File(filePath).readText()
+                            textFieldState.setTextAndPlaceCursorAtEnd(File(filePath).readText())
                             isLoading = false
                         } else {
                             val process =
@@ -148,12 +186,12 @@ class TextEditor : ComponentActivity() {
                             val reader = BufferedReader(InputStreamReader(process.inputStream))
                             val content = reader.use { it.readText() }
                             process.waitFor()
-                            text = content
+                            textFieldState.setTextAndPlaceCursorAtEnd(content)
                             isLoading = false
 
                         }
                     } else {
-                        text = AXMLPrinter.main(arrayOf(filePath))
+                        textFieldState.setTextAndPlaceCursorAtEnd(AXMLPrinter.main(arrayOf(filePath)))
                         isLoading = false
                     }
                 }
@@ -198,13 +236,14 @@ class TextEditor : ComponentActivity() {
 ////                                        )
 ////                                    }
 //                                }
+
+
                                 LazyColumn(
                                     state = lazyListState
                                 ) {
-                                    item {
+                                    item(key = "editor") {
                                         BasicTextField(
-                                            value = text,
-                                            onValueChange = { text = it },
+                                            state = textFieldState,
                                             modifier = Modifier
                                                 .fillMaxSize()
                                                 .padding(start = 16.dp)
@@ -237,9 +276,9 @@ class TextEditor : ComponentActivity() {
                                 },
                                 valueRange = 0f..100f,
                                 modifier = Modifier
-                                    .rotate(if (configuration.orientation == 1) 90f else 0f)  // 旋转90度使其垂直
+                                    .rotate(90f)  // 旋转90度使其垂直
                                     .align(Alignment.CenterEnd)
-                                    .offset(y = if (configuration.orientation == 1) (-150).dp else 0.dp)
+                                    .offset(y = if (configuration.orientation == 1) (-160).dp else (-360).dp)
                                     .alpha(0.6f),
                                 colors = SliderDefaults.colors(
                                     thumbColor = Color.Transparent
@@ -253,6 +292,48 @@ class TextEditor : ComponentActivity() {
                     }
                 }
             }
+            BackHandler { if (textFieldState.undoState.canUndo) showSaveDialog = true else (context as ComponentActivity).finish()}
+            if (showSaveDialog){
+                AlertDialog(
+                    onDismissRequest = { showSaveDialog = false },
+                    text = {
+
+                    },
+                    title = {
+                        Text("保存文件的更改")
+                    },
+                    confirmButton = {
+                        TextButton(
+                            onClick = { showSaveDialog = false }
+                        ) {
+                            Text("取消")
+                        }
+                        Button(
+                            onClick = {
+                                SaveText(filePath, textFieldState.text.toString())
+                                (context as ComponentActivity).finish()
+                            }
+                        ) {
+                            Text("保存")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(
+                            onClick = { (context as ComponentActivity).finish() }
+                        ) {
+                            Text("退出")
+                        }
+                    }
+                )
+            }
+        }
+    }
+
+    fun SaveText(filePath: String, text: String){
+        if (filePath.endsWith("txt")){
+            File(filePath).writeText(text)
+        } else {
+            throw IllegalArgumentException("err: is not a text")
         }
     }
 }

@@ -137,7 +137,7 @@ object BrowseFile {
     fun FileScreen(context: Context) {
         var addSelectedIndex by remember { mutableIntStateOf(0) }
         val addOptions = listOf("文件", "文件夹")
-        var lastItem = "left"
+        var lastItem by remember { mutableStateOf("left") }
         var isRefreshingLeft by remember { mutableStateOf(false) }
         var isRefreshingRight by remember { mutableStateOf(false) }
         var textFieldValue by remember { mutableStateOf("") }
@@ -187,13 +187,20 @@ object BrowseFile {
                         },
                         title = {
                             Text(
-                                text = "文件",
+                                text = (if (lastItem == "left") leftPath.toString() else rightPath.toString()).takeLast(18)  // 取最后 16 个字符
+                                    .let { str ->
+                                        if (str.length == 18 && (leftPath.toString().length > 18 || rightPath.toString().length > 18))
+                                            "..." + str  // 如果原字符串长度 >16，前面加 "..."
+                                        else
+                                            str  // 否则保持原样
+                                    },
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(start = 8.dp),
-                                style = MaterialTheme.typography.titleLarge
+                                style = MaterialTheme.typography.titleLarge,
+                                maxLines = 1,
+
                             )
-                            Text(lastItem)
                         },
                         actions = {
                             var showAddFileDialog by remember { mutableStateOf(false) }
