@@ -99,7 +99,7 @@ class MainActivity : ComponentActivity() {
         var selectedItem by remember { mutableIntStateOf(2) }
         val items = listOf("卡片", "信息", "文件", "应用", "占位")
 
-        val appPath = context.filesDir.absolutePath + "/extract_zip"
+        val appPath = context.filesDir.absolutePath + "/extract_zip/temp/"
         val appFolder = File(appPath)
         if (!appFolder.exists()) {
             appFolder.mkdirs()
@@ -176,5 +176,10 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onDestroy() {
+        File(this.filesDir.absolutePath + "/extract_zip/temp/").delete()
+        super.onDestroy()
     }
 }

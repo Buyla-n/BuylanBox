@@ -99,12 +99,14 @@ import com.buyla.application.util.FileUtil.getFileIcon
 import com.buyla.application.util.FileUtil.getFileType
 import com.buyla.application.util.FileUtil.getZipFileType
 import com.buyla.application.util.FileUtil.leftFileInside
+import com.buyla.application.util.FileUtil.leftFileName
 import com.buyla.application.util.FileUtil.leftInside
 import com.buyla.application.util.FileUtil.leftPath
 import com.buyla.application.util.FileUtil.leftPathInside
 import com.buyla.application.util.FileUtil.onFileClick
 import com.buyla.application.util.FileUtil.pathState
 import com.buyla.application.util.FileUtil.rightFileInside
+import com.buyla.application.util.FileUtil.rightFileName
 import com.buyla.application.util.FileUtil.rightInside
 import com.buyla.application.util.FileUtil.rightPath
 import com.buyla.application.util.FileUtil.rightPathInside
@@ -333,16 +335,17 @@ object BrowseFile {
                                         }
                                 ) {
                                     item {
+                                        if (leftPath.toString() != "/")
                                         FileParentItem(
                                             onClick = {
                                                 if (!leftInside) {
                                                     val parentPath = leftPath.parent
                                                     if (parentPath != null) leftPath = parentPath
                                                 } else {
-                                                    if (leftPathInside == "/"){
+                                                    if (leftPathInside == ""){
                                                         leftInside = false
                                                     } else {
-                                                        leftPathInside = leftPathInside.toPath().parent.toString()
+                                                        leftPathInside = if (leftPathInside.contains("/")) leftPathInside.substringBeforeLast("/") else ""
                                                     }
                                                 }
                                             }
@@ -351,23 +354,35 @@ object BrowseFile {
                                     if (!leftInside) {
                                         items(files) { file ->
                                             val filePath = leftPath.resolve(file)
-                                            FileList(file, filePath, rememberCoroutineScope(), "left")
+                                            FileItem(
+                                                file = file,
+                                                filePath = filePath,
+                                                scope = rememberCoroutineScope(),
+                                                state = "left"
+                                            )
                                         }
                                     } else {
                                         items(
                                             sortZipHeaders(
                                                 completeDirectoriesFromHeaders(inFile).filter { entry ->
                                                     val entryPath = entry.fileName
-                                                    if (insidePath == "/") {
+                                                    if (insidePath == "") {
                                                         !entryPath.contains("/") || entryPath.endsWith("/") && entryPath.count { it == '/' } == 1
                                                     } else {
-                                                        (entryPath.startsWith("${leftPathInside.removePrefix("/")}/") && (entryPath.endsWith("/") || (entryPath.removePrefix(leftPathInside.removePrefix("/"))).count { it == '/' } <= 1)) && entryPath != leftPathInside.removePrefix("/") + "/"
+                                                        (entryPath.startsWith("$leftPathInside/") && (entryPath.endsWith("/") || (entryPath.removePrefix(leftPathInside)).count { it == '/' } <= 1)) && entryPath != "$leftPathInside/"
                                                     }
                                                 }
                                             )
                                         ) { file ->
-                                            val fileName = file.fileName.removePrefix("${leftPathInside.removePrefix("/")}/")
-                                            FileList(fileName, Path(insidePath).resolve(fileName), rememberCoroutineScope(), "left", true)
+                                            val fileName = file.fileName.removePrefix("$leftPathInside/")
+                                            FileItem(
+                                                file = fileName,
+                                                filePath = Path(insidePath).resolve(fileName),
+                                                outSidePath = leftPath.resolve(leftFileName).toString(),
+                                                scope = rememberCoroutineScope(),
+                                                state = "left",
+                                                inSideType = true
+                                            )
                                         }
                                     }
                                 }
@@ -391,7 +406,7 @@ object BrowseFile {
                             targetState = fileStateData(getSortedFiles(rightPath, sortSelectedIndex), rightPath, rightFileInside,  rightInside, rightPathInside),
                             modifier = Modifier.fillMaxSize(),
                             transitionSpec = {
-                                (fadeIn(animationSpec = tween(330, delayMillis = 0)) + scaleIn(initialScale = 0.99f, animationSpec = tween(330, delayMillis = 90))).togetherWith(fadeOut(animationSpec = tween(0)))
+                                (fadeIn(animationSpec = tween(330, delayMillis = 0)) + scaleIn(initialScale = 0.99f, animationSpec = tween(330, delayMillis = 0))).togetherWith(fadeOut(animationSpec = tween(0)))
                             }
                         ) { (files, path, inFile, isInside, insidePath) ->
                             //right
@@ -408,16 +423,17 @@ object BrowseFile {
                                     }
                             ) {
                                 item {
+                                    if (rightPath.toString() != "/")
                                     FileParentItem(
                                         onClick = {
                                             if (!rightInside){
                                                 val parentPath = rightPath.parent
                                                 if (parentPath != null) rightPath = parentPath
                                             } else {
-                                                if (rightPathInside == "/"){
+                                                if (rightPathInside == ""){
                                                     rightInside = false
                                                 } else {
-                                                    rightPathInside = rightPathInside.toPath().parent.toString()
+                                                    rightPathInside = if (rightPathInside.contains("/")) rightPathInside.substringBeforeLast("/") else ""
                                                 }
                                             }
                                         }
@@ -426,23 +442,30 @@ object BrowseFile {
                                 if (!rightInside) {
                                     items(files) { file ->
                                         val filePath = rightPath.resolve(file)
-                                        FileList(file, filePath, rememberCoroutineScope(), "right")
+                                        FileItem(file, filePath, scope = rememberCoroutineScope(), state = "right")
                                     }
                                 } else {
                                     items(
                                         sortZipHeaders(
                                             completeDirectoriesFromHeaders(inFile).filter { entry ->
                                                 val entryPath = entry.fileName
-                                                if (insidePath == "/") {
+                                                if (insidePath == "") {
                                                     !entryPath.contains("/") || entryPath.endsWith("/") && entryPath.count { it == '/' } == 1
                                                 } else {
-                                                    entryPath.startsWith("${rightPathInside.removePrefix("/")}/") && (entryPath.endsWith("/") || (entryPath.removePrefix(rightPathInside.removePrefix("/"))).count { it == '/' } <= 1)
+                                                    entryPath.startsWith("$rightPathInside/") && (entryPath.endsWith("/") || (entryPath.removePrefix(rightPathInside)).count { it == '/' } <= 1)
                                                 }
                                             }
                                         )
                                     ) { file ->
-                                        val fileName = file.fileName.removePrefix("${rightPathInside.removePrefix("/")}/")
-                                        FileList(fileName, Path(insidePath).resolve(fileName), rememberCoroutineScope(), "right", true)
+                                        val fileName = file.fileName.removePrefix("$rightPathInside/")
+                                        FileItem(
+                                            file = fileName,
+                                            filePath = Path(insidePath).resolve(fileName),
+                                            outSidePath = rightPath.resolve(rightFileName).toString(),
+                                            scope = rememberCoroutineScope(),
+                                            state = "right",
+                                            inSideType = true
+                                        )
                                     }
                                 }
                             }
@@ -737,9 +760,10 @@ object BrowseFile {
 
     @OptIn(ExperimentalFoundationApi::class)
     @Composable
-    fun FileList(
+    fun FileItem(
         file: String,
         filePath: Path,
+        outSidePath : String = "",
         scope: CoroutineScope,
         state: String,
         inSideType: Boolean = false
@@ -767,13 +791,26 @@ object BrowseFile {
                     onClick = {
                         scope.launch {
                             pathState = state
-                            onFileClick(
-                                context = context,
-                                filePath = filePath,
-                                type = type,
-                                onNull = { showChooseDialog = true },
-                                onApk = { showInstallDialog = true }
-                            )
+                            if (!inSideType || type == "folder") {
+                                onFileClick(
+                                    context = context,
+                                    filePath = filePath.toString(),
+                                    type = type,
+                                    onNull = { showChooseDialog = true },
+                                    onApk = { showInstallDialog = true }
+                                )
+                                println("$leftPathInside, $leftPath, $leftFileInside, $leftFileName")
+                            } else {
+                                net.lingala.zip4j.ZipFile(outSidePath).extractFile(filePath.toString(), "${context.filesDir.absolutePath}/extract_zip/temp/${outSidePath.toPath().name}/")
+                                onFileClick(
+                                    context = context,
+                                    filePath = "${context.filesDir.absolutePath}/extract_zip/temp/${outSidePath.toPath().name}/$filePath",
+                                    type = type,
+                                    onNull = { showChooseDialog = true },
+                                    onApk = { showInstallDialog = true }
+                                )
+                                println("$leftPathInside, $leftPath, $leftFileInside, $leftFileName")
+                            }
                         }
 
                     },

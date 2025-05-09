@@ -78,20 +78,24 @@ import java.nio.file.Path
 import java.nio.file.Paths
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import kotlin.io.path.Path
 import kotlin.io.path.isDirectory
+import kotlin.io.path.name
 
 object FileUtil {
 
     var sortSelectedIndex by mutableIntStateOf(0)
     var leftPath: Path by mutableStateOf(Paths.get(Environment.getExternalStorageDirectory().toString()))
     var rightPath: Path by mutableStateOf(Paths.get(Environment.getExternalStorageDirectory().toString()))
-    var rightPathInside: String by mutableStateOf("/")
-    var leftPathInside: String by mutableStateOf("assets/")
+    var rightPathInside: String by mutableStateOf("")
+    var leftPathInside: String by mutableStateOf("")
     var rightFileInside: List<FileHeader> by mutableStateOf(listOf())
     var leftFileInside: List<FileHeader> by mutableStateOf(listOf())
     var rightInside: Boolean by mutableStateOf(false)
     var leftInside: Boolean by mutableStateOf(false)
     var pathState: String by mutableStateOf("left")
+    var rightFileName : String by mutableStateOf("")
+    var leftFileName : String by mutableStateOf("")
 
     fun getFileType(filePath: String): String {
         val file = File(filePath)
@@ -115,10 +119,10 @@ object FileUtil {
             listOf("txt", "log", "json", "conf", "html", "md", "cfg", "rc").any { name.endsWith(it) } -> "txt"
             listOf("zip", "gz").any { name.endsWith(it) } -> "zip"
             listOf("jpg", "jpeg", "png", "webp").any { name.endsWith(it) } -> "image"
-            name.equals("mp4", ignoreCase = true) -> "video"
+            name.endsWith("mp4", ignoreCase = true) -> "video"
             listOf("mp3", "wav", "m4a").any { name.endsWith(it) } -> "audio"
             listOf("apk", "apks", "apex").any { name.endsWith(it) } -> "apk"
-            name.equals("xml", ignoreCase = true) -> "xml"
+            name.endsWith("xml", ignoreCase = true) -> "xml"
             else -> "null"
         }
     }
@@ -140,7 +144,7 @@ object FileUtil {
 
     fun onFileClick(
         context: Context,
-        filePath: Path,
+        filePath: String,
         type: String,
         onNull: () -> Unit,
         onApk: () -> Unit
@@ -150,31 +154,31 @@ object FileUtil {
                 when (pathState) {
                     "left" -> {
                         if (!leftInside) {
-                            leftPath = filePath
+                            leftPath = Path(filePath)
                         } else {
-                            leftPathInside = filePath.toString()
+                            leftPathInside = filePath
                         }
                     }
                     "right" -> {
                         if (!rightInside) {
-                            rightPath = filePath
+                            rightPath = Path(filePath)
                         } else {
-                            rightPathInside = filePath.toString()
+                            rightPathInside = filePath
                         }
                     }
                 }
             }
-            "txt" -> { openActivity(context, filePath.toString(), TextEditor::class.java) }
-            "image" -> { openActivity(context, filePath.toString(), ImagePlayer::class.java) }
-            "video" -> { openActivity(context, filePath.toString(), VideoPlayer::class.java) }
-            "audio" -> { openActivity(context, filePath.toString(), AudioPlayer::class.java) }
+            "txt" -> { openActivity(context, filePath, TextEditor::class.java) }
+            "image" -> { openActivity(context, filePath, ImagePlayer::class.java) }
+            "video" -> { openActivity(context, filePath, VideoPlayer::class.java) }
+            "audio" -> { openActivity(context, filePath, AudioPlayer::class.java) }
             "outside" -> {
                 context.startActivity(
                     Intent(Intent.ACTION_VIEW).setDataAndType(
                         FileProvider.getUriForFile(
                             context,
                             "${context.packageName}.fileProvider",
-                            File(filePath.toString())
+                            File(filePath)
                         ), "*/*"
                     ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 )
@@ -182,20 +186,22 @@ object FileUtil {
             "null" -> { onNull() }
             "apk" -> { onApk() }
             "xml" -> {
-                openActivity(context, filePath.toString(), TextEditor::class.java)
+                openActivity(context, filePath, TextEditor::class.java)
             }
             "zip" -> {
                 when (pathState) {
                     "left" -> {
+                        leftFileName = Path(filePath).name
                         leftInside = true
-                        leftPathInside = "/"
+                        leftPathInside = ""
                     }
                     "right" -> {
+                        rightFileName = Path(filePath).name
                         rightInside = true
-                        rightPathInside = "/"
+                        rightPathInside = ""
                     }
                 }
-                ZipFile(filePath.toString()).use { zip ->
+                ZipFile(filePath).use { zip ->
                     if (pathState == "left") leftFileInside = zip.fileHeaders.toList() else rightFileInside = zip.fileHeaders.toList()
                 }
             }
@@ -363,7 +369,7 @@ object FileUtil {
                             onCancel()
                             onFileClick(
                                 context,
-                                filePath,
+                                filePath.toString(),
                                 type,
                                 {}, { onApk() }
                             )

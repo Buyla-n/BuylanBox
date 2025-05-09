@@ -64,7 +64,7 @@ object ApkUtil {
                 onClick = {
                     onFileClick(
                         context = context,
-                        filePath = filePath,
+                        filePath = filePath.toString(),
                         type = "zip",
                         onNull = {  },
                         onApk = {  }

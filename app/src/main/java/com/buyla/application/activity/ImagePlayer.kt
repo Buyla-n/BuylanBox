@@ -1,5 +1,6 @@
 package com.buyla.application.activity
 
+import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -38,6 +39,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
 import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.ExoPlayer
 import coil.compose.AsyncImage
@@ -83,6 +85,17 @@ class ImagePlayer : ComponentActivity() {
         var parentHeight by remember { mutableFloatStateOf(0f) }
         var boxHeight by remember { mutableFloatStateOf(0f) }
         var ratio by remember { mutableFloatStateOf(0f) }
+        val options = BitmapFactory.Options().apply {
+            inJustDecodeBounds = true // 只解码边界信息，不加载完整图片
+        }
+        try {
+            context.contentResolver.openInputStream(File(filePath).toUri())?.use { inputStream ->
+                BitmapFactory.decodeStream(inputStream, null, options)
+            }
+        } catch (e: IllegalArgumentException){
+            options.outWidth = 0
+            options.outHeight = 0
+        }
 
         Scaffold(
             topBar = {
@@ -121,7 +134,7 @@ class ImagePlayer : ComponentActivity() {
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                    Box(
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth(0.9f)
                             .fillMaxHeight(0.1f)
@@ -129,12 +142,18 @@ class ImagePlayer : ComponentActivity() {
                                 MaterialTheme.colorScheme.primaryContainer,
                                 MaterialTheme.shapes.medium
                             ),
-                        contentAlignment = Alignment.CenterStart
+                        verticalArrangement = Arrangement.Center
                     ) {
                         Text(
                             File(filePath).name,
                             style = MaterialTheme.typography.titleLarge,
-                            modifier = Modifier.padding(start = 16.dp),
+                            modifier = Modifier.padding(start = 16.dp).align(Alignment.Start),
+                            maxLines = 1
+                        )
+                        Text(
+                            text = "${options.outHeight} x ${options.outWidth}",
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.padding(end = 16.dp).align(Alignment.End),
                             maxLines = 1
                         )
                     }
@@ -176,6 +195,7 @@ class ImagePlayer : ComponentActivity() {
                         contentDescription = "图片内容",
                         modifier = Modifier
                             .clip(MaterialTheme.shapes.medium)
+                            .fillMaxWidth()
                             .graphicsLayer(
                                 scaleX = scale,
                                 scaleY = scale,

@@ -239,7 +239,8 @@ class TextEditor : ComponentActivity() {
 
 
                                 LazyColumn(
-                                    state = lazyListState
+                                    state = lazyListState,
+                                    modifier = Modifier
                                 ) {
                                     item(key = "editor") {
                                         BasicTextField(
