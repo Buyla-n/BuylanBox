@@ -315,12 +315,12 @@ object BrowseFile {
                         isRefreshing = isRefreshingLeft,
                     ) {
                         AnimatedContent(
-                            targetState = fileStateData(getSortedFiles(leftPath, sortSelectedIndex), leftPath, leftFileInside, leftInside, leftPathInside),
+                            targetState = fileStateData( leftPath, leftFileInside, leftInside, leftPathInside),
                             modifier = Modifier.fillMaxSize(),
                             transitionSpec = {
                                 (fadeIn(animationSpec = tween(330, delayMillis = 0)) + scaleIn(initialScale = 0.99f, animationSpec = tween(330, delayMillis = 90))).togetherWith(fadeOut(animationSpec = tween(0)))
                             }
-                        ) { (files, path, inFile, isInside, insidePath) ->
+                        ) { ( path, inFile, isInside, insidePath) ->
                                 //left
                                 LazyColumn(
                                     modifier = Modifier
@@ -342,7 +342,7 @@ object BrowseFile {
                                                     val parentPath = leftPath.parent
                                                     if (parentPath != null) leftPath = parentPath
                                                 } else {
-                                                    if (leftPathInside == ""){
+                                                    if (insidePath == ""){
                                                         leftInside = false
                                                     } else {
                                                         leftPathInside = if (leftPathInside.contains("/")) leftPathInside.substringBeforeLast("/") else ""
@@ -352,8 +352,8 @@ object BrowseFile {
                                         )
                                     }
                                     if (!leftInside) {
-                                        items(files) { file ->
-                                            val filePath = leftPath.resolve(file)
+                                        items(getSortedFiles(path, sortSelectedIndex)) { file ->
+                                            val filePath = path.resolve(file)
                                             FileItem(
                                                 file = file,
                                                 filePath = filePath,
@@ -362,19 +362,8 @@ object BrowseFile {
                                             )
                                         }
                                     } else {
-                                        items(
-                                            sortZipHeaders(
-                                                completeDirectoriesFromHeaders(inFile).filter { entry ->
-                                                    val entryPath = entry.fileName
-                                                    if (insidePath == "") {
-                                                        !entryPath.contains("/") || entryPath.endsWith("/") && entryPath.count { it == '/' } == 1
-                                                    } else {
-                                                        (entryPath.startsWith("$leftPathInside/") && (entryPath.endsWith("/") || (entryPath.removePrefix(leftPathInside)).count { it == '/' } <= 1)) && entryPath != "$leftPathInside/"
-                                                    }
-                                                }
-                                            )
-                                        ) { file ->
-                                            val fileName = file.fileName.removePrefix("$leftPathInside/")
+                                        items(sortZipHeaders(filterZipEntries(completeDirectoriesFromHeaders(inFile), insidePath))) { file ->
+                                            val fileName = file.fileName.removePrefix("$insidePath/")
                                             FileItem(
                                                 file = fileName,
                                                 filePath = Path(insidePath).resolve(fileName),
@@ -403,12 +392,12 @@ object BrowseFile {
                         isRefreshing = isRefreshingRight,
                     ) {
                         AnimatedContent(
-                            targetState = fileStateData(getSortedFiles(rightPath, sortSelectedIndex), rightPath, rightFileInside,  rightInside, rightPathInside),
+                            targetState = fileStateData( rightPath, rightFileInside,  rightInside, rightPathInside),
                             modifier = Modifier.fillMaxSize(),
                             transitionSpec = {
                                 (fadeIn(animationSpec = tween(330, delayMillis = 0)) + scaleIn(initialScale = 0.99f, animationSpec = tween(330, delayMillis = 0))).togetherWith(fadeOut(animationSpec = tween(0)))
                             }
-                        ) { (files, path, inFile, isInside, insidePath) ->
+                        ) { (path, inFile, isInside, insidePath) ->
                             //right
                             LazyColumn(
                                 modifier = Modifier
@@ -430,7 +419,7 @@ object BrowseFile {
                                                 val parentPath = rightPath.parent
                                                 if (parentPath != null) rightPath = parentPath
                                             } else {
-                                                if (rightPathInside == ""){
+                                                if (insidePath == ""){
                                                     rightInside = false
                                                 } else {
                                                     rightPathInside = if (rightPathInside.contains("/")) rightPathInside.substringBeforeLast("/") else ""
@@ -440,24 +429,13 @@ object BrowseFile {
                                     )
                                 }
                                 if (!rightInside) {
-                                    items(files) { file ->
-                                        val filePath = rightPath.resolve(file)
+                                    items(getSortedFiles(path, sortSelectedIndex)) { file ->
+                                        val filePath = path.resolve(file)
                                         FileItem(file, filePath, scope = rememberCoroutineScope(), state = "right")
                                     }
                                 } else {
-                                    items(
-                                        sortZipHeaders(
-                                            completeDirectoriesFromHeaders(inFile).filter { entry ->
-                                                val entryPath = entry.fileName
-                                                if (insidePath == "") {
-                                                    !entryPath.contains("/") || entryPath.endsWith("/") && entryPath.count { it == '/' } == 1
-                                                } else {
-                                                    entryPath.startsWith("$rightPathInside/") && (entryPath.endsWith("/") || (entryPath.removePrefix(rightPathInside)).count { it == '/' } <= 1)
-                                                }
-                                            }
-                                        )
-                                    ) { file ->
-                                        val fileName = file.fileName.removePrefix("$rightPathInside/")
+                                    items(sortZipHeaders(filterZipEntries(completeDirectoriesFromHeaders(inFile), insidePath))) { file ->
+                                        val fileName = file.fileName.removePrefix("$insidePath/")
                                         FileItem(
                                             file = fileName,
                                             filePath = Path(insidePath).resolve(fileName),
@@ -801,7 +779,10 @@ object BrowseFile {
                                 )
                                 println("$leftPathInside, $leftPath, $leftFileInside, $leftFileName")
                             } else {
-                                net.lingala.zip4j.ZipFile(outSidePath).extractFile(filePath.toString(), "${context.filesDir.absolutePath}/extract_zip/temp/${outSidePath.toPath().name}/")
+                                net.lingala.zip4j.ZipFile(outSidePath).extractFile(
+                                    filePath.toString(),
+                                    "${context.filesDir.absolutePath}/extract_zip/temp/${outSidePath.toPath().name}/"
+                                )
                                 onFileClick(
                                     context = context,
                                     filePath = "${context.filesDir.absolutePath}/extract_zip/temp/${outSidePath.toPath().name}/$filePath",
@@ -856,6 +837,31 @@ object BrowseFile {
 
         if (showInstallDialog) {
             ApkInfoDialog(filePath = filePath, onCancel = { showInstallDialog = false }, manager = true, context = context)
+        }
+    }
+
+    fun filterZipEntries(entries: List<FileHeader>, targetPath: String): List<FileHeader> {
+        val normalizedPath = if (targetPath.endsWith("/")) targetPath else "$targetPath/"
+        val isRoot = targetPath.isEmpty()
+
+        return entries.filter { entry ->
+            val entryName = entry.fileName
+            when {
+                // 处理根目录情况
+                isRoot -> {
+                    entryName.count { it == '/' } == 0 ||  // 根目录文件
+                            (entryName.endsWith("/") && entryName.count { it == '/' } == 1)  // 根目录文件夹
+                }
+                // 处理非根目录情况
+                else -> {
+                    entryName.startsWith(normalizedPath) &&
+                            entryName.removePrefix(normalizedPath).let { remaining ->
+                                remaining.count { it == '/' } == 0 ||  // 直接文件
+                                        (remaining.endsWith("/") && remaining.count { it == '/' } == 1)  // 直接文件夹
+                            } &&
+                            entryName != normalizedPath  // 排除目标路径本身
+                }
+            }
         }
     }
 }

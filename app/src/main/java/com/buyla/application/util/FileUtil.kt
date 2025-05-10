@@ -423,7 +423,6 @@ object FileUtil {
         val file = filePath.fileName
         AlertDialog(
             onDismissRequest = { onCancel() },
-            title = { Text("文件操作") },
             text = {
                 @Composable
                 fun OperateButton(
@@ -496,16 +495,16 @@ object FileUtil {
                                 filePath.toString()
                             )
                         }
-                        OperateButton("button") { }
+                        OperateButton("取消") {
+                            onCancel()
+                        }
                     }
                 }
             },
             confirmButton = {
             },
             dismissButton = {
-                TextButton(onClick = { onCancel() }) {
-                    Text(stringResource(R.string.cancel))
-                }
+
             },
         )
     }

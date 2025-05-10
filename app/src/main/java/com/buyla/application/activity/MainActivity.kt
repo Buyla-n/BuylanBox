@@ -179,7 +179,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
-        File(this.filesDir.absolutePath + "/extract_zip/temp/").delete()
+        File(this.filesDir.absolutePath + "/extract_zip/temp/").deleteRecursively()
         super.onDestroy()
     }
 }
