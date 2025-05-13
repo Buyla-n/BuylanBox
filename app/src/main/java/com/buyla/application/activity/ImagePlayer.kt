@@ -57,9 +57,8 @@ class ImagePlayer : ComponentActivity() {
         enableEdgeToEdge()
         window.isNavigationBarContrastEnforced = false
 
-        // 获取传递过来的文件路径
         filePath = intent.getStringExtra("filePath") ?: run {
-            finish() // 如果没有文件路径，直接关闭Activity
+            finish()
             return
         }
 
@@ -92,7 +91,7 @@ class ImagePlayer : ComponentActivity() {
             context.contentResolver.openInputStream(File(filePath).toUri())?.use { inputStream ->
                 BitmapFactory.decodeStream(inputStream, null, options)
             }
-        } catch (e: IllegalArgumentException){
+        } catch (_: IllegalArgumentException){
             options.outWidth = 0
             options.outHeight = 0
         }
@@ -162,7 +161,6 @@ class ImagePlayer : ComponentActivity() {
                 var scale by remember { mutableFloatStateOf(1f) }
                 var offsetX by remember { mutableFloatStateOf(0f) }
                 var offsetY by remember { mutableFloatStateOf(0f) }
-                // 中间的图片播放区域
                 Box(
                     modifier = Modifier
                         .fillMaxWidth(0.9f)
@@ -176,7 +174,6 @@ class ImagePlayer : ComponentActivity() {
                                 ratio = boxHeight / parentHeight
                             }
                         }
-                        //.weight(0.6f)
                         .pointerInput(Unit) {
                             coroutineScope {
                                 detectTransformGestures { _, pan, zoom, _ ->

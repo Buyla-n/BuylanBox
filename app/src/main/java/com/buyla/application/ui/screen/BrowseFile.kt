@@ -1,9 +1,7 @@
 package com.buyla.application.ui.screen
     
-import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import android.os.Environment
 import android.os.StatFs
 import android.provider.Settings
@@ -85,9 +83,10 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.net.toUri
 import com.buyla.application.R
 import com.buyla.application.activity.FileSettings
-import com.buyla.application.data.fileStateData
+import com.buyla.application.data.FileStateData
 import com.buyla.application.util.ApkUtil.ApkInfoDialog
 import com.buyla.application.util.FileUtil.ChooseDialog
 import com.buyla.application.util.FileUtil.FileInfoDialog
@@ -113,8 +112,6 @@ import com.buyla.application.util.FileUtil.rightPathInside
 import com.buyla.application.util.FileUtil.sortSelectedIndex
 import com.buyla.application.util.Util.fileVertical
 import com.buyla.application.util.Util.forbiddenCharacters
-import com.buyla.application.util.Util.isSuperUser
-import com.buyla.application.util.Util.selectedAuth
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -122,18 +119,12 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import net.lingala.zip4j.model.FileHeader
 import okio.Path.Companion.toPath
-import java.io.BufferedReader
 import java.io.File
-import java.io.InputStreamReader
 import java.nio.file.Path
 import java.nio.file.Paths
 import kotlin.io.path.Path
 
 object BrowseFile {
-
-    var appearFile by mutableStateOf(true)
-
-    @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter", "SdCardPath")
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
     fun FileScreen(context: Context) {
@@ -146,7 +137,7 @@ object BrowseFile {
 
         if (!Environment.isExternalStorageManager()) {
             val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION)
-            intent.data = Uri.parse("package:" + context.packageName)
+            intent.data = ("package:" + context.packageName).toUri()
             context.startActivity(intent)
         }
 
@@ -157,9 +148,27 @@ object BrowseFile {
             scope.launch {
                 if (drawerState.isClosed) {
                     if (lastItem == "left") {
-                        if (!leftInside) leftPath = leftPath.parent else leftInside = false
+                        if (!leftInside) {
+                            val parentPath = leftPath.parent
+                            if (parentPath != null) leftPath = parentPath
+                        } else {
+                            if (leftPathInside == ""){
+                                leftInside = false
+                            } else {
+                                leftPathInside = if (leftPathInside.contains("/")) leftPathInside.substringBeforeLast("/") else ""
+                            }
+                        }
                     } else {
-                        if (!rightInside) rightPath = rightPath.parent else rightInside = false
+                        if (!rightInside) {
+                            val parentPath = rightPath.parent
+                            if (parentPath != null) rightPath = parentPath
+                        } else {
+                            if (rightPathInside == ""){
+                                rightInside = false
+                            } else {
+                                rightPathInside = if (rightPathInside.contains("/")) rightPathInside.substringBeforeLast("/") else ""
+                            }
+                        }
                     }
                 } else {
                     drawerState.close()
@@ -192,7 +201,7 @@ object BrowseFile {
                                 text = (if (lastItem == "left") leftPath.toString() else rightPath.toString()).takeLast(18)  // 取最后 16 个字符
                                     .let { str ->
                                         if (str.length == 18 && (leftPath.toString().length > 18 || rightPath.toString().length > 18))
-                                            "..." + str  // 如果原字符串长度 >16，前面加 "..."
+                                            "...$str"  // 如果原字符串长度 >16，前面加 "..."
                                         else
                                             str  // 否则保持原样
                                     },
@@ -315,14 +324,15 @@ object BrowseFile {
                         isRefreshing = isRefreshingLeft,
                     ) {
                         AnimatedContent(
-                            targetState = fileStateData( leftPath, leftFileInside, leftInside, leftPathInside),
+                            targetState = FileStateData( leftPath, leftFileInside, leftInside,  leftPathInside),
                             modifier = Modifier.fillMaxSize(),
                             transitionSpec = {
-                                (fadeIn(animationSpec = tween(330, delayMillis = 0)) + scaleIn(initialScale = 0.99f, animationSpec = tween(330, delayMillis = 90))).togetherWith(fadeOut(animationSpec = tween(0)))
+                                (fadeIn(animationSpec = tween(330, delayMillis = 0)) + scaleIn(initialScale = 0.99f, animationSpec = tween(330, delayMillis = 0))).togetherWith(fadeOut(animationSpec = tween(0)))
                             }
-                        ) { ( path, inFile, isInside, insidePath) ->
-                                //left
-                                LazyColumn(
+                        ) { ( path, inFile, _, insidePath) ->
+                            //left
+                            val sortedFiles = if (!leftInside) remember(path, sortSelectedIndex) { getSortedFiles(path, sortSelectedIndex) } else listOf()
+                            LazyColumn(
                                     modifier = Modifier
                                         .pointerInput(Unit) {
                                             awaitPointerEventScope {
@@ -352,7 +362,7 @@ object BrowseFile {
                                         )
                                     }
                                     if (!leftInside) {
-                                        items(getSortedFiles(path, sortSelectedIndex)) { file ->
+                                        items(sortedFiles) { file ->
                                             val filePath = path.resolve(file)
                                             FileItem(
                                                 file = file,
@@ -392,12 +402,13 @@ object BrowseFile {
                         isRefreshing = isRefreshingRight,
                     ) {
                         AnimatedContent(
-                            targetState = fileStateData( rightPath, rightFileInside,  rightInside, rightPathInside),
+                            targetState = FileStateData( rightPath, rightFileInside,  rightInside, rightPathInside),
                             modifier = Modifier.fillMaxSize(),
                             transitionSpec = {
                                 (fadeIn(animationSpec = tween(330, delayMillis = 0)) + scaleIn(initialScale = 0.99f, animationSpec = tween(330, delayMillis = 0))).togetherWith(fadeOut(animationSpec = tween(0)))
                             }
-                        ) { (path, inFile, isInside, insidePath) ->
+                        ) { (path, inFile, _, insidePath) ->
+                            val sortedFiles = if (!rightInside) remember(path, sortSelectedIndex) { getSortedFiles(path, sortSelectedIndex) } else listOf()
                             //right
                             LazyColumn(
                                 modifier = Modifier
@@ -429,7 +440,7 @@ object BrowseFile {
                                     )
                                 }
                                 if (!rightInside) {
-                                    items(getSortedFiles(path, sortSelectedIndex)) { file ->
+                                    items(sortedFiles) { file ->
                                         val filePath = path.resolve(file)
                                         FileItem(file, filePath, scope = rememberCoroutineScope(), state = "right")
                                     }
@@ -494,7 +505,7 @@ object BrowseFile {
                                     val availableBytes =
                                         stat.availableBlocksLong * stat.blockSizeLong
                                     if (totalBytes > 0) (totalBytes - availableBytes).toFloat() / totalBytes else 0f
-                                } catch (e: Exception) {
+                                } catch (_: Exception) {
                                     0f
                                 }
                             }
@@ -506,7 +517,7 @@ object BrowseFile {
                                     val availableBytes =
                                         stat.availableBlocksLong * stat.blockSizeLong
                                     if (totalBytes > 0) (totalBytes - availableBytes).toFloat() / totalBytes else 0f
-                                } catch (e: Exception) {
+                                } catch (_: Exception) {
                                     0f
                                 }
                             }
@@ -556,7 +567,7 @@ object BrowseFile {
                             label = { Text("存储器") },
                             selected = false,
                             onClick = {
-                                if (lastItem == "left") leftPath = Paths.get("/sdcard") else rightPath = Paths.get("/sdcard")
+                                if (lastItem == "left") leftPath = Paths.get(Environment.getExternalStorageDirectory().toString()) else rightPath = Paths.get(Environment.getExternalStorageDirectory().toString())
                                 scope.launch {
                                     drawerState.close()
                                 }
@@ -674,66 +685,43 @@ object BrowseFile {
 
     private fun getSortedFiles(path: Path, sortByName: Int): List<String> {
         return try {
-            val files = if (isSuperUser) {
-                // 使用 ls -a 命令获取文件列表（需要 root/Shizuku）
-                getFilesViaLsCommand(path)
-            } else {
-                // 普通方式获取文件列表
-                path.toFile().listFiles()?.toList()
-            }
-
-            files!!.sortedWith(
-                compareBy<File> { !it.isDirectory } // 目录优先
+            val startTime = System.currentTimeMillis()
+            val files = path.toFile().listFiles()?.toList()
+            val getFiles = files!!.sortedWith(
+                compareBy<File> { !it.isDirectory }
                     .then(
                         when (sortByName) {
-                            0 -> compareBy { it.name.lowercase() } // 按名称（不区分大小写，升序）
-                            1 -> compareBy { it.extension.lowercase() } // 按扩展名（升序）
-                            2 -> compareBy { it.length() } // 按大小（升序，小文件在前）
-                            3 -> compareByDescending { it.lastModified() } // 按时间（降序，最新修改在前）
-                            else -> compareBy { it.name } // 默认按名称
+                            0 -> compareBy { it.name.lowercase() }
+                            1 -> compareBy { it.extension.lowercase() }
+                            2 -> compareBy { it.length() }
+                            3 -> compareByDescending { it.lastModified() }
+                            else -> compareBy { it.name }
                         }
                     )
             ).map { it.name }
-        } catch (e: Exception) {
-            emptyList()
 
+            val endTime = System.currentTimeMillis()
+            println("$path${endTime - startTime}")
+
+            return getFiles
+        } catch (_: Exception) {
+            emptyList()
         }
     }
 
     fun sortZipHeaders(zipHeaders: List<FileHeader>): List<FileHeader> {
         return zipHeaders.sortedWith(
-            compareBy<FileHeader> { !it.fileName.endsWith("/") } // 目录优先
+            compareBy<FileHeader> { !it.fileName.endsWith("/") }
                 .then(
                     when (sortSelectedIndex) {
-                        0 -> compareBy { it.fileName.lowercase() } // 按名称（不区分大小写，升序）
-                        1 -> compareBy { it.fileName.lowercase() } // 按扩展名（升序）
-                        2 -> compareBy { it.compressedSize } // 按大小（升序，小文件在前）
-                        3 -> compareByDescending { it.fileName } // 按时间（降序，最新修改在前）
-                        else -> compareBy { it.fileName } // 默认按名称
+                        0 -> compareBy { it.fileName }
+                        1 -> compareBy { it.fileName.toString().substringAfter(".") }
+                        2 -> compareBy { it.compressedSize }
+                        3 -> compareByDescending { it.lastModifiedTime }
+                        else -> compareBy { it.fileName }
                     }
                 )
         ).map { it }
-    }
-
-    private fun getFilesViaLsCommand(path: Path): List<File>? {
-        return try {
-            val command = if (selectedAuth == "Shizuku") {
-                // Shizuku 方式执行命令
-                arrayOf("sh", "-c", "ls -a \"${path}\"")
-            } else {
-                // Root 方式执行命令
-                arrayOf("su", "-c", "ls -a \"${path}\"")
-            }
-
-            val process = Runtime.getRuntime().exec(command)
-            val reader = BufferedReader(InputStreamReader(process.inputStream))
-            val lines = reader.readLines()
-            process.waitFor()
-
-            lines.map { File(path.toFile(), it) }
-        } catch (e: Exception) {
-            null
-        }
     }
 
     @OptIn(ExperimentalFoundationApi::class)
@@ -777,7 +765,6 @@ object BrowseFile {
                                     onNull = { showChooseDialog = true },
                                     onApk = { showInstallDialog = true }
                                 )
-                                println("$leftPathInside, $leftPath, $leftFileInside, $leftFileName")
                             } else {
                                 net.lingala.zip4j.ZipFile(outSidePath).extractFile(
                                     filePath.toString(),
@@ -790,7 +777,6 @@ object BrowseFile {
                                     onNull = { showChooseDialog = true },
                                     onApk = { showInstallDialog = true }
                                 )
-                                println("$leftPathInside, $leftPath, $leftFileInside, $leftFileName")
                             }
                         }
 
@@ -819,25 +805,11 @@ object BrowseFile {
             )
         }
 
-        if (showChooseDialog) {
-            ChooseDialog(onCancel = { showChooseDialog = false }, context = context, filePath = filePath, {showInstallDialog = true})
-        }
-
-        if (showOperateDialog) {
-            OperateDialog(filePath = filePath, type = type, context = context, onCancel = { showOperateDialog = false }, ChooseDialog = { showChooseDialog = true }, FileInfoDialog = { showFileInfoDialog = true }, renameDialog = { showRenameDialog = true })
-        }
-
-        if (showFileInfoDialog) {
-            FileInfoDialog(filePath = filePath, onCancel = { showFileInfoDialog = false })
-        }
-
-        if (showRenameDialog) {
-            RenameFileDialog(filePath = filePath, onCancel = { showRenameDialog = false })
-        }
-
-        if (showInstallDialog) {
-            ApkInfoDialog(filePath = filePath, onCancel = { showInstallDialog = false }, manager = true, context = context)
-        }
+        if (showChooseDialog) { ChooseDialog(onCancel = { showChooseDialog = false }, context = context, filePath = filePath, {showInstallDialog = true}) }
+        if (showOperateDialog) { OperateDialog(filePath = filePath, type = type, context = context, onCancel = { showOperateDialog = false }, chooseDialog = { showChooseDialog = true }, fileInfoDialog = { showFileInfoDialog = true }, renameDialog = { showRenameDialog = true }) }
+        if (showFileInfoDialog) { FileInfoDialog(filePath = filePath, onCancel = { showFileInfoDialog = false }) }
+        if (showRenameDialog) { RenameFileDialog(filePath = filePath, onCancel = { showRenameDialog = false }) }
+        if (showInstallDialog) { ApkInfoDialog(filePath = filePath, onCancel = { showInstallDialog = false }, manager = true, context = context) }
     }
 
     fun filterZipEntries(entries: List<FileHeader>, targetPath: String): List<FileHeader> {
@@ -847,20 +819,8 @@ object BrowseFile {
         return entries.filter { entry ->
             val entryName = entry.fileName
             when {
-                // 处理根目录情况
-                isRoot -> {
-                    entryName.count { it == '/' } == 0 ||  // 根目录文件
-                            (entryName.endsWith("/") && entryName.count { it == '/' } == 1)  // 根目录文件夹
-                }
-                // 处理非根目录情况
-                else -> {
-                    entryName.startsWith(normalizedPath) &&
-                            entryName.removePrefix(normalizedPath).let { remaining ->
-                                remaining.count { it == '/' } == 0 ||  // 直接文件
-                                        (remaining.endsWith("/") && remaining.count { it == '/' } == 1)  // 直接文件夹
-                            } &&
-                            entryName != normalizedPath  // 排除目标路径本身
-                }
+                isRoot -> { entryName.count { it == '/' } == 0 || (entryName.endsWith("/") && entryName.count { it == '/' } == 1) }
+                else -> { entryName.startsWith(normalizedPath) && entryName.removePrefix(normalizedPath).let { it.count { it == '/' } == 0 || (it.endsWith("/") && it.count { it == '/' } == 1) } && entryName != normalizedPath }
             }
         }
     }

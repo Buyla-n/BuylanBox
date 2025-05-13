@@ -25,7 +25,7 @@ import java.io.InputStream
  *
  * Simple helper class that allows reading of integers.
  *
- * TODO:
+ *
  *  * implement buffering
  */
 class IntReader(private var stream: InputStream?, private var bigEndian: Boolean) {
@@ -41,7 +41,7 @@ class IntReader(private var stream: InputStream?, private var bigEndian: Boolean
 		stream?.let {
 			try {
 				it.close()
-			} catch (e: IOException) {
+			} catch (_: IOException) {
 				// Ignore
 			}
 		}

@@ -5,11 +5,9 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
-import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
-import android.net.Uri
 import android.provider.Settings
 import android.widget.Toast
 import androidx.compose.foundation.Image
@@ -23,16 +21,16 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Android
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -45,6 +43,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
+import androidx.core.graphics.createBitmap
+import androidx.core.net.toUri
 import com.buyla.application.R
 import com.buyla.application.util.FileUtil.onFileClick
 import com.buyla.application.util.Util.copyToClipboard
@@ -59,7 +59,7 @@ object ApkUtil {
         onCancel: () -> Unit,
         context: Context,
         buttonCustom: @Composable () -> Unit = {
-            OutlinedButton(
+            FilledTonalButton(
                 modifier = Modifier.padding(horizontal = 4.dp),
                 onClick = {
                     onFileClick(
@@ -71,7 +71,7 @@ object ApkUtil {
                     )
                 },
             ) {
-                Text("分解")
+                Text("查看")
             }
             Button(
                 modifier = Modifier
@@ -88,7 +88,7 @@ object ApkUtil {
         val context = LocalContext.current
         AlertDialog(
             onDismissRequest = { onCancel() },
-            title = { Text("安装包信息") },
+            title = { Text("安装包") },
             text = {
                 Column(
                     modifier = Modifier.padding(8.dp)
@@ -100,34 +100,35 @@ object ApkUtil {
                         horizontalArrangement = Arrangement.Center
                     ) {
                         apkInfo?.icon?.let { bitmap ->
-                            Image(
-                                painter = BitmapPainter(bitmap),
-                                contentDescription = "应用图标",
-                                modifier = Modifier
-                                    .size(38.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .padding(bottom = 12.dp)
-                            )
-                        } ?:
-                        Column {
                             Box(
                                 modifier = Modifier
-                                    .size(32.dp)
-                                    //.padding(bottom = 12.dp)
-                                    .background(
-                                        color = MaterialTheme.colorScheme.surfaceVariant,
-                                        shape = MaterialTheme.shapes.medium
-                                    ),
-                                contentAlignment = Alignment.Center
+                                    .padding(bottom = 16.dp)
+                                    .size(42.dp)
                             ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.Android,
-                                    contentDescription = "默认图标",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                Image(
+                                    painter = BitmapPainter(bitmap),
+                                    contentDescription = "应用图标",
+                                    modifier = Modifier
+                                        .clip(CircleShape)
                                 )
                             }
-                            Spacer(Modifier.padding(vertical = 6.dp))
+                        } ?: Box(
+                            modifier = Modifier
+                                .padding(bottom = 16.dp)
+                                .size(42.dp)
+                                .background(
+                                    color = MaterialTheme.colorScheme.primary,
+                                    shape = CircleShape
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Android,
+                                contentDescription = "默认图标",
+                                tint = MaterialTheme.colorScheme.surface,
+                            )
                         }
+                        Spacer(Modifier.padding(vertical = 6.dp))
                         apkInfo?.let {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
@@ -158,7 +159,7 @@ object ApkUtil {
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .background(
-                                    color = MaterialTheme.colorScheme.surfaceVariant,
+                                    color = MaterialTheme.colorScheme.primaryContainer,
                                     shape = RoundedCornerShape(12.dp)
                                 )
                                 .padding(16.dp)
@@ -175,7 +176,7 @@ object ApkUtil {
                     buttonCustom()
             },
             dismissButton = {
-                TextButton(
+                FilledTonalButton(
                     onClick = { onCancel() }
                 ) {
                     Text(stringResource(R.string.cancel))
@@ -232,11 +233,7 @@ object ApkUtil {
                     drawable.bitmap
                 } else {
                     // 如果是 VectorDrawable 或其他类型的 Drawable
-                    val bitmap = Bitmap.createBitmap(
-                        drawable.intrinsicWidth,
-                        drawable.intrinsicHeight,
-                        Bitmap.Config.ARGB_8888
-                    )
+                    val bitmap = createBitmap(drawable.intrinsicWidth, drawable.intrinsicHeight)
                     val canvas = Canvas(bitmap)
                     drawable.setBounds(0, 0, canvas.width, canvas.height)
                     drawable.draw(canvas)
@@ -248,16 +245,15 @@ object ApkUtil {
             val isInstalled = try {
                 pm.getPackageInfo(packageInfo.packageName, 0)
                 true
-            } catch (e: PackageManager.NameNotFoundException) {
+            } catch (_: PackageManager.NameNotFoundException) {
                 false
             }
 
             val icon = try {
                 if (manager) {
-                    val resources = pm.getResourcesForApplication(packageInfo.applicationInfo!!)
                     val iconId = packageInfo.applicationInfo!!.icon
                     if (iconId != 0) {
-                        val drawable = resources.getDrawable(iconId, null)
+                        val drawable = pm.getResourcesForApplication(packageInfo.applicationInfo!!).getDrawable(iconId, null)
                         drawableToImageBitmap(drawable)
                     } else {
                         null
@@ -266,13 +262,13 @@ object ApkUtil {
                     val drawable = pm.getApplicationIcon(packageInfo.packageName)
                     drawableToImageBitmap(drawable)
                 }
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 null
             }
 
             val enabled = try {
                 packageInfo.applicationInfo!!.enabled
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 false
             }
 
@@ -282,7 +278,7 @@ object ApkUtil {
 
             val place = try {
                 getInstalledApkPath(context, packageInfo.packageName).toString()
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 //
             }
 
@@ -296,7 +292,7 @@ object ApkUtil {
                 place = place.toString(),
                 enabled = enabled
             )
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             ApkInfo()
         }
     }
@@ -328,7 +324,7 @@ object ApkUtil {
         if (!context.packageManager.canRequestPackageInstalls()) {
             context.startActivity(
                 Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
-                    data = Uri.parse("package:${context.packageName}")
+                    data = "package:${context.packageName}".toUri()
                 }
             )
             return
@@ -336,7 +332,7 @@ object ApkUtil {
 
         try {
             context.startActivity(intent)
-        } catch (e: ActivityNotFoundException) {
+        } catch (_: ActivityNotFoundException) {
             Toast.makeText(context, "未找到安装程序", Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
             Toast.makeText(context, "安装失败: ${e.message}", Toast.LENGTH_SHORT).show()

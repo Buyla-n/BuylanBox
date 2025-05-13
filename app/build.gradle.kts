@@ -12,8 +12,8 @@ android {
         applicationId = "com.buyla.application"
         minSdk = 31
         targetSdk = 35
-        versionCode = 36
-        versionName = "0.3.6"
+        versionCode = 42
+        versionName = "0.4.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         signingConfig = signingConfigs.getByName("debug")
@@ -72,8 +72,6 @@ dependencies {
     implementation(libs.androidx.media3.exoplayer.v140)
     implementation(libs.androidx.media3.media3.ui)
     implementation(libs.androidx.window)
-    implementation(libs.dev.api)
-    implementation(libs.provider)
     implementation(libs.androidx.material.icons.core)
     implementation(libs.androidx.material.icons.extended)
 }

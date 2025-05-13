@@ -24,7 +24,7 @@ import java.io.IOException
  *
  * Block of strings, used in binary xml and arsc.
  *
- * TODO:
+ *
  * - implement get()
  */
 class StringBlock private constructor() {
@@ -39,10 +39,10 @@ class StringBlock private constructor() {
 	 * Fixed utf 8 to 16LE problem
 	 */
 	fun getString(index: Int): String? {
-		if (index < 0 || mStringOffsets == null || index >= mStringOffsets!!.size) {
+		if (index < 0 || index >= mStringOffsets.size) {
 			return null
 		}
-		val offset: Int = mStringOffsets!![index]
+		val offset: Int = mStringOffsets[index]
 
 		var currentOffset = offset
 
@@ -89,11 +89,11 @@ class StringBlock private constructor() {
 	 * Returns -1 if the string was not found.
 	 */
 	fun find(string: String?): Int {
-		if (string == null || mStringOffsets == null) return -1
+		if (string == null) return -1
 
-		for (i in mStringOffsets!!.indices) {
-			var offset = mStringOffsets!![i]
-			val length = getShort(mStrings!!, offset)
+		for (i in mStringOffsets.indices) {
+			var offset = mStringOffsets[i]
+			val length = getShort(mStrings, offset)
 			if (length != string.length) continue
 
 			var j = 0
@@ -107,18 +107,6 @@ class StringBlock private constructor() {
 		}
 
 		return -1
-	}
-
-	/**
-	 * Returns style information - array of int triplets,
-	 * where in each triplet:
-	 *  * first int is index of tag name ('b','i', etc.)
-	 *  * second int is tag start index in string
-	 *  * third int is tag end index in string
-	 */
-	@Deprecated(message = "Deprecated! deprecated in kotlin")
-	private fun getStyle(index: Int): IntArray? {
-		return null
 	}
 
 	companion object {

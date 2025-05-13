@@ -83,7 +83,7 @@ class TextEditor : ComponentActivity() {
 
         filePath =
             intent.getStringExtra("filePath") ?: run {
-                finish() // 如果没有文件路径，直接关闭Activity
+                finish()
                 return
             }
 

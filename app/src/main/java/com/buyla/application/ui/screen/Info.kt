@@ -137,7 +137,7 @@ object Info {
                 containerColor = MaterialTheme.colorScheme.secondaryContainer
             ),
             shape = MaterialTheme.shapes.medium,
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+         //   elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
             Row(
                 modifier = Modifier
@@ -176,7 +176,7 @@ object Info {
         return try {
             val enforced = android.os.StrictMode.VmPolicy.Builder().build() != null
             if (enforced) "强制" else "关闭 / 宽容"
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             "未知"
         }
     }
@@ -201,7 +201,7 @@ object Info {
         return try {
             val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
             packageInfo.versionName ?: "未知"
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             "未知"
         }
     }

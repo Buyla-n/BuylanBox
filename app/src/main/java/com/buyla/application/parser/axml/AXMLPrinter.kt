@@ -79,7 +79,7 @@ fun main(args: Array<String>): String {
 			}
 
 			val elapsed = System.currentTimeMillis() - startTime  // 计算耗时
-			println("Success, took: ${elapsed} ms")
+			println("Success, took: $elapsed ms")
 		}
 	} catch (e: Exception) {
 		"Error: ${e.message}"

@@ -63,6 +63,7 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import androidx.core.graphics.createBitmap
 import com.buyla.application.R
 import com.buyla.application.ui.theme.MyAppTheme
 import kotlinx.coroutines.CoroutineScope
@@ -197,7 +198,7 @@ class AppsListActivity : ComponentActivity() {
                     Modifier.fillMaxSize(),
                     Alignment.Center
                 ) {
-                    Text("╮(╯▽╰)╭ 啥也没有～")
+                    Text("╮(╯▽╰)╭ 啥也没有")
                 }
             } else {
                 LazyColumn(
@@ -227,20 +228,20 @@ class AppsListActivity : ComponentActivity() {
             if (showLinkDialog){
                 AlertDialog(
                     onDismissRequest = { showWarningDialog = false },
-                    title = { Text("动作") },
+                    title = { },
                     text = {
-                        Column {
+                        Row {
                             Button(
                                 onClick = { extracted(exp, appInfo)},
-                                modifier = Modifier.fillMaxWidth()
+                                modifier = Modifier.weight(1f)
                             ) {
                                 Text("打开")
                             }
                             Button(
                                 onClick = {  },
-                                modifier = Modifier.fillMaxWidth()
+                                modifier = Modifier.weight(1f)
                             ) {
-                                Text("创建快捷方式")
+                                Text("创建")
                             }
                         }
                     },
@@ -253,18 +254,12 @@ class AppsListActivity : ComponentActivity() {
                     }
                 )
             }
-            // 应用图标
             var appIconBitmap by remember { mutableStateOf<Bitmap?>(null) }
             LaunchedEffect(appInfo) {
                 CoroutineScope(Dispatchers.IO).launch {
                     try {
-                        // 加载应用图标
                         val iconDrawable = context.packageManager.getApplicationIcon(appInfo.packageName)
-                        val iconBitmap = Bitmap.createBitmap(
-                            iconDrawable.intrinsicWidth,
-                            iconDrawable.intrinsicHeight,
-                            Bitmap.Config.ARGB_8888
-                        )
+                        val iconBitmap = createBitmap(iconDrawable.intrinsicWidth, iconDrawable.intrinsicHeight)
                         val canvas = Canvas(iconBitmap)
                         iconDrawable.setBounds(0, 0, canvas.width, canvas.height)
                         iconDrawable.draw(canvas)
@@ -284,7 +279,6 @@ class AppsListActivity : ComponentActivity() {
             ) {
                 Row(
                     modifier = Modifier
-                        //  .height(60.dp)
                         .weight(4f)
                         .background(
                             color = MaterialTheme.colorScheme.surfaceVariant,
@@ -385,8 +379,7 @@ class AppsListActivity : ComponentActivity() {
 
             try {
                 startActivity(intent)
-            } catch (e: Exception) {
-                // 如果目标 Activity 不存在或无法启动
+            } catch (_: Exception) {
                 Toast.makeText(
                     this@AppsListActivity,
                     "无法启动目标应用",

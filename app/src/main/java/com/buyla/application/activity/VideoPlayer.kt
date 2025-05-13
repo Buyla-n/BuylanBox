@@ -69,9 +69,8 @@ class VideoPlayer : ComponentActivity() {
         enableEdgeToEdge()
         window.isNavigationBarContrastEnforced = false
 
-        // 获取传递过来的文件路径
         filePath = intent.getStringExtra("filePath") ?: run {
-            finish() // 如果没有文件路径，直接关闭Activity
+            finish()
             return
         }
 
@@ -215,7 +214,6 @@ class VideoPlayer : ComponentActivity() {
                         )
                     }
 
-                    // 播放/暂停，循环/播完就暂停 和设置，倍速键
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -260,11 +258,10 @@ class VideoPlayer : ComponentActivity() {
                             )
                         }
 
-                        Button(onClick = {
-                            // 这里可以添加设置的逻辑，例如弹出一个设置对话框
-                        }) {
-                            Text("设置")
-                        }
+//                        Button(onClick = {
+//                        }) {
+//                            Text("设置")
+//                        }
 
                         Button(onClick = {
                             playbackSpeed = when (playbackSpeed) {

@@ -62,9 +62,8 @@ class AudioPlayer : ComponentActivity() {
         enableEdgeToEdge()
         window.isNavigationBarContrastEnforced = false
 
-        // 获取传递过来的文件路径
         filePath = intent.getStringExtra("filePath") ?: run {
-            finish() // 如果没有文件路径，直接关闭Activity
+            finish()
             return
         }
 
@@ -159,7 +158,6 @@ class AudioPlayer : ComponentActivity() {
                         modifier = Modifier.padding(start = 16.dp)
                     )
                 }
-                // 中间的大圆角矩形和音乐图标
                 Spacer(modifier = Modifier.padding(vertical = 8.dp))
                 Box(
                     modifier = Modifier
@@ -200,7 +198,6 @@ class AudioPlayer : ComponentActivity() {
                         )
                     }
 
-                    // 播放/暂停，循环/播完就暂停 和设置，倍速键
                     Row(
                         modifier = Modifier.fillMaxWidth()
                             .padding(bottom = 16.dp, end = 14.dp, start = 4.dp),

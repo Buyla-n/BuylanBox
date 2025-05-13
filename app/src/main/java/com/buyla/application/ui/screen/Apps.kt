@@ -6,6 +6,7 @@ import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.os.Environment
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Row
@@ -33,7 +34,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
@@ -57,6 +57,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.graphics.createBitmap
 import com.buyla.application.R
 import com.buyla.application.activity.AppsListActivity
 import com.buyla.application.util.ApkUtil.ApkInfoDialog
@@ -202,11 +203,8 @@ object Apps {
                     val name = appInfo.loadLabel(context.packageManager).toString()
                     // 加载应用图标
                     val iconDrawable = context.packageManager.getApplicationIcon(appInfo.packageName)
-                    val iconBitmap = Bitmap.createBitmap(
-                        iconDrawable.intrinsicWidth,
-                        iconDrawable.intrinsicHeight,
-                        Bitmap.Config.ARGB_8888
-                    )
+                    val iconBitmap =
+                        createBitmap(iconDrawable.intrinsicWidth, iconDrawable.intrinsicHeight)
                     val canvas = Canvas(iconBitmap)
                     iconDrawable.setBounds(0, 0, canvas.width, canvas.height)
                     iconDrawable.draw(canvas)
@@ -279,12 +277,12 @@ object Apps {
                 onCancel = {showInfoDialog = false},
                 context = LocalContext.current,
                 buttonCustom = {
-                    OutlinedButton(
+                    Button(
                         modifier = Modifier.padding(horizontal = 4.dp),
                         onClick = {
                             copyFile(
                                 getInstalledApkPath(context, appInfo.packageName),
-                                Paths.get("/sdcard/BuylaBox/" + appInfo.packageName + ".apk")
+                                Paths.get("${Environment.getExternalStorageDirectory()}/BuylaBox/" + appInfo.packageName + ".apk")
                             )
                             successDialog = true
                         },

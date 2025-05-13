@@ -3,7 +3,6 @@ package com.buyla.application.ui.screen
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -30,6 +29,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
 import com.buyla.application.activity.ShellTerminal
 
 
@@ -75,7 +75,7 @@ object Home {
 
     private fun openWebPage(context: Context) {
         val url = "https://www.coolapk.com/u/23065765"
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+        val intent = Intent(Intent.ACTION_VIEW, url.toUri())
         context.startActivity(intent)
     }
 
@@ -123,7 +123,6 @@ object Home {
 
     @Composable
     fun FloatWindowCard() {
-        val context = LocalContext.current
         Column {
             Button(
                 modifier = Modifier

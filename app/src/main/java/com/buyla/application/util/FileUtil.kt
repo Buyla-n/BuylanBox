@@ -48,7 +48,6 @@ import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -415,11 +414,10 @@ object FileUtil {
         type: String,
         context: Context,
         onCancel: () -> Unit,
-        ChooseDialog: () -> Unit,
-        FileInfoDialog: () -> Unit,
+        chooseDialog: () -> Unit,
+        fileInfoDialog: () -> Unit,
         renameDialog: () -> Unit
     ) {
-        var progress by remember { mutableFloatStateOf(0f) }
         val file = filePath.fileName
         AlertDialog(
             onDismissRequest = { onCancel() },
@@ -463,9 +461,9 @@ object FileUtil {
                                     }
                                 )
                         }
-                        OperateButton("打开方式", type != "folder") { ChooseDialog() }
+                        OperateButton("打开方式", type != "folder") { chooseDialog() }
                         OperateButton("重命名") { renameDialog() }
-                        OperateButton("属性") { FileInfoDialog() }
+                        OperateButton("属性") { fileInfoDialog() }
                     }
 
                     VerticalDivider(modifier = Modifier.height(230.dp))
