@@ -5,11 +5,11 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
-import android.graphics.Canvas
-import android.graphics.drawable.BitmapDrawable
-import android.graphics.drawable.Drawable
 import android.provider.Settings
 import android.widget.Toast
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -19,10 +19,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Android
 import androidx.compose.material3.AlertDialog
@@ -32,22 +34,27 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.FileProvider
-import androidx.core.graphics.createBitmap
+import androidx.core.graphics.drawable.toBitmap
 import androidx.core.net.toUri
 import com.buyla.application.R
 import com.buyla.application.util.FileUtil.onFileClick
 import com.buyla.application.util.Util.copyToClipboard
+import kotlinx.coroutines.launch
 import java.io.File
 import java.nio.file.Path
 import java.nio.file.Paths
@@ -83,17 +90,50 @@ object ApkUtil {
                 Text("安装")
             }
         },
-        manager: Boolean = false
+        findByName: Boolean = false,
+        packageName : String = ""
     ){
         val context = LocalContext.current
+        val scale = remember { Animatable(0.8f) } // 初始缩放值
+        val offsetY = remember { Animatable(100f) }
+
+        // 启动动画（进入时）
+        LaunchedEffect(Unit) {
+            launch {
+                offsetY.animateTo(
+                    targetValue = 0f,
+                    animationSpec = tween(durationMillis = 300)
+                )
+            }
+            launch {
+                scale.animateTo(
+                    targetValue = 1f,
+                    animationSpec = tween(durationMillis = 300)
+                )
+            }
+        }
         AlertDialog(
-            onDismissRequest = { onCancel() },
+            onDismissRequest = {
+                onCancel()
+            },
+            properties = DialogProperties( // 禁用默认动画
+                dismissOnBackPress = true,
+                dismissOnClickOutside = true,
+                usePlatformDefaultWidth = true
+            ),
+            modifier = Modifier
+                .graphicsLayer {
+                    scaleX = scale.value
+                    scaleY = scale.value
+                    translationY = offsetY.value
+                }
+                .animateContentSize(),
             title = { Text("安装包") },
             text = {
                 Column(
                     modifier = Modifier.padding(8.dp)
                 ) {
-                    val apkInfo = getApkInfo(context, File(filePath.toString()), manager)
+                    val apkInfo = getApkInfo(context, File(filePath.toString()), findByName, packageName = packageName)
 
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -155,29 +195,28 @@ object ApkUtil {
                     }
 
                     apkInfo?.let {
-                        Column(
+                        LazyVerticalGrid(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .background(
-                                    color = MaterialTheme.colorScheme.primaryContainer,
-                                    shape = RoundedCornerShape(12.dp)
-                                )
-                                .padding(16.dp)
+                                .fillMaxWidth(),
+                            columns = GridCells.Fixed(2),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            InfoRow("版本名称", it.versionName)
-                            InfoRow("版本号", it.versionCode.toString())
-                            InfoRow("安装状态", if (it.isInstalled) "已安装" else "未安装")
-                            InfoRow("安装包", it.place)
+                            item {InfoCard("版本", "${it.versionName} (${it.versionCode})") }
+                            item {InfoCard("安装", if (it.isInstalled) "已安装" else "未安装")}
+                            if (it.isInstalled) item {InfoCard("位置", it.place)}
+                            if (it.isInstalled) item {InfoCard("数据", it.dataPath)}
                         }
                     } ?: Text("无法读取APK信息", color = MaterialTheme.colorScheme.error)
                 }
             },
             confirmButton = {
-                    buttonCustom()
+                buttonCustom()
             },
             dismissButton = {
                 FilledTonalButton(
-                    onClick = { onCancel() }
+                    onClick = { onCancel() },
+                    modifier = Modifier.padding(end = 4.dp)
                 ) {
                     Text(stringResource(R.string.cancel))
                 }
@@ -186,19 +225,24 @@ object ApkUtil {
     }
 
     @Composable
-    fun InfoRow(label: String, value: String) {
+    fun InfoCard(label: String, value: String) {
         val context = LocalContext.current
-        Row(
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 4.dp),
-            horizontalArrangement = Arrangement.SpaceBetween
+                .background(
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    shape = MaterialTheme.shapes.large
+                )
+                .padding(16.dp)
+                .height(42.dp),
+            verticalArrangement = Arrangement.Center
         ) {
             Text(
                 text = label,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(end = 48.dp)
+                modifier = Modifier.padding(end = 48.dp),
+                maxLines = 1
             )
 
             Text(
@@ -215,97 +259,67 @@ object ApkUtil {
         }
     }
 
-    private fun getApkInfo(context: Context, apkFile: File, manager: Boolean): ApkInfo? {
-        return try {
-            val pm = context.packageManager
+    private fun getApkInfo(context: Context, apkPath: File, findByName: Boolean, packageName: String = ""): ApkInfo? {
+        val packageManager = context.packageManager
 
-            val packageInfo = pm.getPackageArchiveInfo(
-                apkFile.absolutePath,
-                PackageManager.GET_ACTIVITIES
-            ) ?: return null
-
-            packageInfo.applicationInfo!!.sourceDir = apkFile.absolutePath
-            packageInfo.applicationInfo!!.publicSourceDir = apkFile.absolutePath
-
-            fun drawableToImageBitmap(drawable: Drawable): ImageBitmap {
-
-                val bitmap = if (drawable is BitmapDrawable) {
-                    drawable.bitmap
-                } else {
-                    // 如果是 VectorDrawable 或其他类型的 Drawable
-                    val bitmap = createBitmap(drawable.intrinsicWidth, drawable.intrinsicHeight)
-                    val canvas = Canvas(bitmap)
-                    drawable.setBounds(0, 0, canvas.width, canvas.height)
-                    drawable.draw(canvas)
-                    bitmap
-                }
-                return bitmap.asImageBitmap()
-            }
-
-            val isInstalled = try {
-                pm.getPackageInfo(packageInfo.packageName, 0)
-                true
-            } catch (_: PackageManager.NameNotFoundException) {
-                false
-            }
-
+        if (!findByName) {
+            val packageInfo = packageManager.getPackageArchiveInfo(apkPath.absolutePath, PackageManager.GET_ACTIVITIES) ?: return null
+            packageInfo.applicationInfo!!.sourceDir = apkPath.absolutePath
+            packageInfo.applicationInfo!!.publicSourceDir = apkPath.absolutePath
+            val isInstalled = try { packageManager.getPackageInfo(packageInfo.packageName, 0).firstInstallTime > 1 } catch (e: PackageManager.NameNotFoundException) { false }
             val icon = try {
-                if (manager) {
-                    val iconId = packageInfo.applicationInfo!!.icon
-                    if (iconId != 0) {
-                        val drawable = pm.getResourcesForApplication(packageInfo.applicationInfo!!).getDrawable(iconId, null)
-                        drawableToImageBitmap(drawable)
-                    } else {
-                        null
-                    }
-                } else {
-                    val drawable = pm.getApplicationIcon(packageInfo.packageName)
-                    drawableToImageBitmap(drawable)
-                }
+                val iconId = packageInfo.applicationInfo!!.icon
+                if (iconId != 0) { packageManager.getResourcesForApplication(packageInfo.applicationInfo!!).getDrawable(iconId, null).toBitmap().asImageBitmap() } else { null }
             } catch (_: Exception) {
                 null
             }
-
-            val enabled = try {
-                packageInfo.applicationInfo!!.enabled
-            } catch (_: Exception) {
-                false
-            }
-
-            val appName = packageInfo.applicationInfo!!.loadLabel(pm).toString()
-                .takeIf { it.isNotEmpty() }
-                ?: packageInfo.packageName
-
-            val place = try {
-                getInstalledApkPath(context, packageInfo.packageName).toString()
-            } catch (_: Exception) {
-                //
-            }
-
-            ApkInfo(
+            val enabled = false
+            val appName = packageInfo.applicationInfo!!.loadLabel(packageManager).toString()
+            val place = if (isInstalled) packageManager.getApplicationInfo(packageInfo.packageName, 0).sourceDir ?: "" else ""
+            val dataPath = if (isInstalled) packageManager.getApplicationInfo(packageInfo.packageName, 0).dataDir ?: "" else ""
+            return ApkInfo(
                 packageName = packageInfo.packageName,
                 versionCode = packageInfo.longVersionCode.toInt(),
-                versionName = packageInfo.versionName!!,
+                versionName = packageInfo.versionName.toString(),
                 appName = appName,
                 icon = icon,
                 isInstalled = isInstalled,
                 place = place.toString(),
-                enabled = enabled
+                enabled = enabled,
+                dataPath = dataPath
             )
-        } catch (_: Exception) {
-            ApkInfo()
+        } else {
+            val packageInfo = packageManager.getPackageInfo(packageName, 0)
+            val isInstalled = packageInfo.firstInstallTime > 1
+            val icon = packageInfo.applicationInfo?.loadIcon(packageManager)!!
+            val enabled = false
+            val appName = packageInfo.applicationInfo?.loadLabel(packageManager)
+            val place = packageManager.getApplicationInfo(packageName, 0).sourceDir
+            val dataPath = packageInfo.applicationInfo?.dataDir.toString()
+            return ApkInfo(
+                packageName = packageInfo.packageName,
+                versionCode = packageInfo.longVersionCode.toInt(),
+                versionName = packageInfo.versionName!!,
+                appName = appName.toString(),
+                icon = icon.toBitmap().asImageBitmap(),
+                isInstalled = isInstalled,
+                place = place.toString(),
+                enabled = enabled,
+                dataPath = dataPath
+            )
         }
     }
 
     data class ApkInfo(
-        val packageName: String = "未知包名",
+        val packageName: String = "",
         val versionCode: Int = 0,
-        val versionName: String = "未知版本",
-        val appName: String = "未知应用",
+        val versionName: String = "",
+        val appName: String = "",
         val icon: ImageBitmap? = null,
         val isInstalled: Boolean = false,
-        val place: String = "未知路径",
+        val place: String = "",
         val enabled: Boolean = false,
+        val dataPath: String = ""
     )
 
     fun installApk(context: Context, apkFile: Path) {
@@ -341,11 +355,8 @@ object ApkUtil {
 
     fun getInstalledApkPath(context: Context, packageName: String): Path {
         try {
-            // 获取PackageManager实例
             val packageManager = context.packageManager
-            // 通过包名获取ApplicationInfo
             val applicationInfo: ApplicationInfo = packageManager.getApplicationInfo(packageName, 0)
-            // 获取APK路径
             return Paths.get(applicationInfo.sourceDir)
         } catch (e: PackageManager.NameNotFoundException) {
             e.printStackTrace()

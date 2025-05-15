@@ -20,8 +20,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.InsertDriveFile
-import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.rounded.Android
+import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.AudioFile
 import androidx.compose.material.icons.rounded.DateRange
 import androidx.compose.material.icons.rounded.Description
@@ -329,7 +329,7 @@ object FileUtil {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
-                imageVector = Icons.Filled.ArrowUpward,
+                imageVector = Icons.Rounded.ArrowUpward,
                 contentDescription = null,
                 modifier = Modifier.padding(start = 8.dp),
                 tint = MaterialTheme.colorScheme.onPrimaryContainer

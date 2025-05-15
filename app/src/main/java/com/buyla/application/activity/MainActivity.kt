@@ -23,16 +23,16 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Help
 import androidx.compose.material.icons.automirrored.outlined.Help
-import androidx.compose.material.icons.filled.Apps
-import androidx.compose.material.icons.filled.Description
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.outlined.Apps
+import androidx.compose.material.icons.automirrored.rounded.Help
+import androidx.compose.material.icons.outlined.CorporateFare
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.rounded.CorporateFare
+import androidx.compose.material.icons.rounded.Description
+import androidx.compose.material.icons.rounded.Home
+import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -114,11 +114,11 @@ class MainActivity : ComponentActivity() {
                             onClick = { selectedItem = index },
                             icon = {
                                 val iconRes = when (index) {
-                                    0 -> if (selectedItem == index) Icons.Filled.Home else Icons.Outlined.Home
-                                    1 -> if (selectedItem == index) Icons.Filled.Info else Icons.Outlined.Info
-                                    2 -> if (selectedItem == index) Icons.Filled.Description else Icons.Outlined.Description
-                                    3 -> if (selectedItem == index) Icons.Filled.Apps else Icons.Outlined.Apps
-                                    else -> if (selectedItem == index) Icons.AutoMirrored.Filled.Help else Icons.AutoMirrored.Outlined.Help
+                                    0 -> if (selectedItem == index) Icons.Rounded.Home else Icons.Outlined.Home
+                                    1 -> if (selectedItem == index) Icons.Rounded.Info else Icons.Outlined.Info
+                                    2 -> if (selectedItem == index) Icons.Rounded.Description else Icons.Outlined.Description
+                                    3 -> if (selectedItem == index) Icons.Rounded.CorporateFare else Icons.Outlined.CorporateFare
+                                    else -> if (selectedItem == index) Icons.AutoMirrored.Rounded.Help else Icons.AutoMirrored.Outlined.Help
                                 }
                                 Icon(
                                     imageVector = iconRes,

@@ -301,7 +301,9 @@ object Apps {
                     ) {
                         Text("活动")
                     }
-                }
+                },
+                findByName = true,
+                packageName = appInfo.packageName
             )
         }
 

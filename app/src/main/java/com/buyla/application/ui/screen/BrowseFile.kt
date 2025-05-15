@@ -34,8 +34,8 @@ import androidx.compose.material.icons.automirrored.filled.Help
 import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.InstallMobile
-import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Menu
 import androidx.compose.material.icons.twotone.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
@@ -88,6 +88,7 @@ import com.buyla.application.R
 import com.buyla.application.activity.FileSettings
 import com.buyla.application.data.FileStateData
 import com.buyla.application.util.ApkUtil.ApkInfoDialog
+import com.buyla.application.util.FileUtil
 import com.buyla.application.util.FileUtil.ChooseDialog
 import com.buyla.application.util.FileUtil.FileInfoDialog
 import com.buyla.application.util.FileUtil.FileParentItem
@@ -193,22 +194,19 @@ object BrowseFile {
                                     }
                                 }
                             }) {
-                                Icon(Icons.Filled.Menu, contentDescription = "Menu")
+                                Icon(Icons.Rounded.Menu, contentDescription = "Menu")
                             }
                         },
                         title = {
                             Text(
-                                text = (if (lastItem == "left") leftPath.toString() else rightPath.toString()).takeLast(18)  // 取最后 16 个字符
+                                text = (if (lastItem == "left") leftPath.toString() else rightPath.toString()).takeLast(24)
                                     .let { str ->
-                                        if (str.length == 18 && (leftPath.toString().length > 18 || rightPath.toString().length > 18))
-                                            "...$str"  // 如果原字符串长度 >16，前面加 "..."
-                                        else
-                                            str  // 否则保持原样
+                                        if (str.length == 24) "...$str" else str
                                     },
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(start = 8.dp),
-                                style = MaterialTheme.typography.titleLarge,
+                                style = MaterialTheme.typography.titleMedium,
                                 maxLines = 1,
 
                             )
@@ -329,7 +327,7 @@ object BrowseFile {
                             transitionSpec = {
                                 (fadeIn(animationSpec = tween(330, delayMillis = 0)) + scaleIn(initialScale = 0.99f, animationSpec = tween(330, delayMillis = 0))).togetherWith(fadeOut(animationSpec = tween(0)))
                             }
-                        ) { ( path, inFile, _, insidePath) ->
+                        ) { ( path, inFile, leftInside, insidePath) ->
                             //left
                             val sortedFiles = if (!leftInside) remember(path, sortSelectedIndex) { getSortedFiles(path, sortSelectedIndex) } else listOf()
                             LazyColumn(
@@ -353,7 +351,7 @@ object BrowseFile {
                                                     if (parentPath != null) leftPath = parentPath
                                                 } else {
                                                     if (insidePath == ""){
-                                                        leftInside = false
+                                                        FileUtil.leftInside = false
                                                     } else {
                                                         leftPathInside = if (leftPathInside.contains("/")) leftPathInside.substringBeforeLast("/") else ""
                                                     }
@@ -407,7 +405,7 @@ object BrowseFile {
                             transitionSpec = {
                                 (fadeIn(animationSpec = tween(330, delayMillis = 0)) + scaleIn(initialScale = 0.99f, animationSpec = tween(330, delayMillis = 0))).togetherWith(fadeOut(animationSpec = tween(0)))
                             }
-                        ) { (path, inFile, _, insidePath) ->
+                        ) { (path, inFile, rightInside, insidePath) ->
                             val sortedFiles = if (!rightInside) remember(path, sortSelectedIndex) { getSortedFiles(path, sortSelectedIndex) } else listOf()
                             //right
                             LazyColumn(
@@ -431,7 +429,7 @@ object BrowseFile {
                                                 if (parentPath != null) rightPath = parentPath
                                             } else {
                                                 if (insidePath == ""){
-                                                    rightInside = false
+                                                    FileUtil.rightInside = false
                                                 } else {
                                                     rightPathInside = if (rightPathInside.contains("/")) rightPathInside.substringBeforeLast("/") else ""
                                                 }
@@ -685,7 +683,6 @@ object BrowseFile {
 
     private fun getSortedFiles(path: Path, sortByName: Int): List<String> {
         return try {
-            val startTime = System.currentTimeMillis()
             val files = path.toFile().listFiles()?.toList()
             val getFiles = files!!.sortedWith(
                 compareBy<File> { !it.isDirectory }
@@ -699,10 +696,6 @@ object BrowseFile {
                         }
                     )
             ).map { it.name }
-
-            val endTime = System.currentTimeMillis()
-            println("$path${endTime - startTime}")
-
             return getFiles
         } catch (_: Exception) {
             emptyList()
@@ -784,7 +777,7 @@ object BrowseFile {
                     onLongClick = {
                         pathState = state
                         showOperateDialog = true
-                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        haptics.performHapticFeedback(HapticFeedbackType.ToggleOn)
                     },
                     indication = null,
                     interactionSource = null
@@ -809,7 +802,7 @@ object BrowseFile {
         if (showOperateDialog) { OperateDialog(filePath = filePath, type = type, context = context, onCancel = { showOperateDialog = false }, chooseDialog = { showChooseDialog = true }, fileInfoDialog = { showFileInfoDialog = true }, renameDialog = { showRenameDialog = true }) }
         if (showFileInfoDialog) { FileInfoDialog(filePath = filePath, onCancel = { showFileInfoDialog = false }) }
         if (showRenameDialog) { RenameFileDialog(filePath = filePath, onCancel = { showRenameDialog = false }) }
-        if (showInstallDialog) { ApkInfoDialog(filePath = filePath, onCancel = { showInstallDialog = false }, manager = true, context = context) }
+        if (showInstallDialog) { ApkInfoDialog(filePath = filePath, onCancel = { showInstallDialog = false }, findByName = false, context = context) }
     }
 
     fun filterZipEntries(entries: List<FileHeader>, targetPath: String): List<FileHeader> {

@@ -3,27 +3,23 @@ agp = "8.7.3"
 coilCompose = "2.7.0"
 core = "1.15.0"
 datastorePreferences = "1.1.2"
-devApi = "13.1.5"
 foundation = "1.7.6"
 kotlin = "2.0.0"
 coreKtx = "1.15.0"
-lifecycleRuntimeKtx = "2.6.1"
+#noinspection GradleDependency
+lifecycleRuntimeKtx = "2.8.7"
 activityCompose = "1.9.0"
-composeBom = "2024.04.01"
 appcompat = "1.7.0"
-lifecycleServiceVersion = "2.6.0"
-material3 = "1.3.1"
+material3 = "1.3.2"
 cardview = "1.0.0"
 media3ExoplayerVersion = "1.4.0"
 navigationCompose = "2.8.5"
-provider = "13.1.5"
-uiToolingPreviewVersion = "1.7.6"
-uiVersion = "1.7.6"
+uiToolingPreviewVersion = "1.8.0"
+uiVersion = "1.8.0"
 window = "1.1.0"
 zip4j = "2.11.5"
 materialIconsCore = "1.5.0-alpha01"
 materialIconsExtended = "1.5.0-alpha01"
-uiTextGoogleFonts = "1.7.8"
 
 [libraries]
 androidx-compose-ui-ui = { module = "androidx.compose.ui:ui", version.ref = "uiVersion" }
@@ -39,21 +35,16 @@ androidx-window = { module = "androidx.window:window", version.ref = "window" }
 coil-compose = { module = "io.coil-kt:coil-compose", version.ref = "coilCompose" }
 androidx-lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version.ref = "lifecycleRuntimeKtx" }
 androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }
-androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }
 androidx-ui = { group = "androidx.compose.ui", name = "ui" }
 androidx-ui-graphics = { group = "androidx.compose.ui", name = "ui-graphics" }
 androidx-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview" }
 androidx-material3 = { group = "androidx.compose.material3", name = "material3" }
 androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
 androidx-cardview = { group = "androidx.cardview", name = "cardview", version.ref = "cardview" }
-dev-api = { module = "dev.rikka.shizuku:api", version.ref = "devApi" }
-lifecycle-service = { module = "androidx.lifecycle:lifecycle-service", version.ref = "lifecycleServiceVersion" }
 material3 = { module = "androidx.compose.material3:material3", version.ref = "material3" }
-provider = { module = "dev.rikka.shizuku:provider", version.ref = "provider" }
 zip4j = { module = "net.lingala.zip4j:zip4j", version.ref = "zip4j" }
 androidx-material-icons-core = { group = "androidx.compose.material", name = "material-icons-core", version.ref = "materialIconsCore" }
 androidx-material-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended", version.ref = "materialIconsExtended" }
-androidx-ui-text-google-fonts = { group = "androidx.compose.ui", name = "ui-text-google-fonts", version.ref = "uiTextGoogleFonts" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
