@@ -15,8 +15,6 @@
  */
 package com.buyla.application.parser.axml
 
-import com.buyla.application.parser.axml.code.res.AXmlResourceParser
-import com.buyla.application.parser.axml.util.TypedValue
 import org.xmlpull.v1.XmlPullParser
 import java.io.FileInputStream
 
@@ -49,7 +47,7 @@ fun main(args: Array<String>): String {
 				}
 				when (type) {
 					XmlPullParser.START_DOCUMENT -> {
-						//append("<?xml version=\"1.0\" encoding=\"utf-8\"?>\n")
+						append("<?xml version=\"1.0\" encoding=\"utf-8\"?>\n")
 					}
 					XmlPullParser.START_TAG -> {
 						append("$indent<${getNamespacePrefix(parser.prefix)}${parser.name}")
@@ -78,6 +76,7 @@ fun main(args: Array<String>): String {
 				}
 			}
 
+			parser.close()
 			val elapsed = System.currentTimeMillis() - startTime  // 计算耗时
 			println("Success, took: $elapsed ms")
 		}
