@@ -94,17 +94,11 @@ object ApkUtil {
         packageName : String = ""
     ){
         val context = LocalContext.current
-        val scale = remember { Animatable(0.8f) } // 初始缩放值
-        val offsetY = remember { Animatable(100f) }
+        val scale = remember { Animatable(0.9f) } // 初始缩放值
 
         // 启动动画（进入时）
         LaunchedEffect(Unit) {
-            launch {
-                offsetY.animateTo(
-                    targetValue = 0f,
-                    animationSpec = tween(durationMillis = 300)
-                )
-            }
+
             launch {
                 scale.animateTo(
                     targetValue = 1f,
@@ -125,7 +119,6 @@ object ApkUtil {
                 .graphicsLayer {
                     scaleX = scale.value
                     scaleY = scale.value
-                    translationY = offsetY.value
                 }
                 .animateContentSize(),
             title = { Text("安装包") },

@@ -9,6 +9,8 @@ import android.graphics.Canvas
 import android.os.Environment
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -23,10 +25,10 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.HourglassEmpty
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -164,7 +166,7 @@ object Apps {
                             }
                         ) {
                             Icon(
-                                imageVector = if (searchActive) Icons.Filled.Close else Icons.Filled.Search,
+                                imageVector = if (searchActive) Icons.Rounded.Close else Icons.Rounded.Search,
                                 contentDescription = if (searchActive) "关闭搜索" else "搜索"
                             )
                         }
@@ -242,13 +244,7 @@ object Apps {
                             .size(48.dp)
                             .padding(8.dp)
                     )
-                } ?: Image(
-                    imageVector = Icons.Filled.HourglassEmpty, // 这里替换成你的默认图标资源
-                    contentDescription = null,
-                    modifier = Modifier
-                        .size(48.dp)
-                        .padding(8.dp)
-                )
+                }
                 Text(
                     text = appName,
                     style = MaterialTheme.typography.bodyLarge,
@@ -257,16 +253,21 @@ object Apps {
                 )
             }
             Spacer(Modifier.padding(horizontal = 8.dp))
-            Button(
-                onClick = { showInfoDialog = true },
-                shape = MaterialTheme.shapes.medium,
+            Box(
                 modifier = Modifier
                     .weight(1f)
                     .height(54.dp)
+                    .background(color = MaterialTheme.colorScheme.primary, shape = MaterialTheme.shapes.medium)
+                    .clickable {
+                        showInfoDialog = true
+                    },
+                contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Filled.Info,
-                    contentDescription = null
+                    imageVector = Icons.Rounded.Info,
+                    modifier = Modifier.size(28.dp),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onPrimary
                 )
             }
         }

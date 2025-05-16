@@ -6,6 +6,12 @@ import android.content.Intent
 import android.os.Environment
 import android.text.format.Formatter.formatFileSize
 import android.widget.Toast
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
@@ -18,6 +24,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.InsertDriveFile
 import androidx.compose.material.icons.rounded.Android
@@ -27,6 +34,7 @@ import androidx.compose.material.icons.rounded.DateRange
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.FolderZip
+import androidx.compose.material.icons.rounded.FontDownload
 import androidx.compose.material.icons.rounded.Image
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Storage
@@ -36,14 +44,13 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -60,9 +67,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import androidx.core.content.FileProvider
 import com.buyla.application.R
 import com.buyla.application.activity.AudioPlayer
+import com.buyla.application.activity.FontPreview
 import com.buyla.application.activity.ImagePlayer
 import com.buyla.application.activity.TextEditor
 import com.buyla.application.activity.VideoPlayer
@@ -106,6 +115,7 @@ object FileUtil {
             file.extension.equals("mp4", ignoreCase = true) -> "video"
             file.extension in listOf("mp3", "wav", "m4a") -> "audio"
             file.extension in listOf("apk", "apks", "apex") -> "apk"
+            file.extension in listOf("ttf", "otf", "ttc") -> "font"
             file.extension.equals("xml", ignoreCase = true) -> "xml"
             else -> "null"
         }
@@ -122,6 +132,7 @@ object FileUtil {
             listOf("mp3", "wav", "m4a").any { name.endsWith(it) } -> "audio"
             listOf("apk", "apks", "apex").any { name.endsWith(it) } -> "apk"
             name.endsWith("xml", ignoreCase = true) -> "xml"
+            listOf("ttf", "otf", "ttc").any { name.endsWith(it) } -> "font"
             else -> "null"
         }
     }
@@ -137,6 +148,7 @@ object FileUtil {
             "video" -> Icons.Rounded.VideoFile
             "audio" -> Icons.Rounded.AudioFile
             "apk" -> Icons.Rounded.Android
+            "font" -> Icons.Rounded.FontDownload
             else -> Icons.AutoMirrored.Rounded.InsertDriveFile
         }
     }
@@ -203,6 +215,9 @@ object FileUtil {
                 ZipFile(filePath).use { zip ->
                     if (pathState == "left") leftFileInside = zip.fileHeaders.toList() else rightFileInside = zip.fileHeaders.toList()
                 }
+            }
+            "font" -> {
+                openActivity(context, filePath, FontPreview::class.java)
             }
         }
     }
@@ -344,20 +359,26 @@ object FileUtil {
     }
 
     @Composable
-    fun ChooseDialog(
-        onCancel: () -> Unit,
-        context: Context,
+    fun OperateDialog(
         filePath: Path,
+        type: String,
+        context: Context,
+        onCancel: () -> Unit,
+        showSelect : Boolean = false,
+        fileInfoDialog: () -> Unit,
+        renameDialog: () -> Unit,
         onApk: () -> Unit
     ) {
-        AlertDialog(
+        val file = filePath.fileName
+        var selectUi by remember { mutableStateOf(showSelect) }
+        Dialog(
             onDismissRequest = { onCancel() },
-            title = { Text("打开方式") },
-            text = {
+            content = {
                 @Composable
-                fun ChooseButton(
-                    label: String,
-                    type: String
+                fun OperateButton(
+                    buttonText: String,
+                    enabled: Boolean = true,
+                    onClick: () -> Unit,
                 ) {
                     Button(
                         modifier = Modifier
@@ -365,76 +386,6 @@ object FileUtil {
                             .fillMaxWidth(),
                         shape = MaterialTheme.shapes.large,
                         onClick = {
-                            onCancel()
-                            onFileClick(
-                                context,
-                                filePath.toString(),
-                                type,
-                                {}, { onApk() }
-                            )
-                        }
-                    ) {
-                        Text(label)
-                    }
-                }
-                Row {
-                    Column(
-                        modifier = Modifier.weight(0.5f)
-                    ) {
-                        ChooseButton("视频", "video")
-                        ChooseButton("图片", "image")
-                        ChooseButton("文本", "txt")
-                        ChooseButton("安装包", "apk")
-                    }
-
-                    VerticalDivider(modifier = Modifier.height(230.dp))
-
-                    Column(
-                        modifier = Modifier.weight(0.5f)
-                    ) {
-                        ChooseButton("音频", "video")
-                        ChooseButton("button", "null")
-                        ChooseButton("button", "null")
-                        ChooseButton("外部链接", "outside")
-                    }
-                }
-            },
-            confirmButton = {},
-            dismissButton = {
-                TextButton(onClick = { onCancel() }) {
-                    Text(stringResource(R.string.cancel))
-                }
-            }
-        )
-    }
-
-    @Composable
-    fun OperateDialog(
-        filePath: Path,
-        type: String,
-        context: Context,
-        onCancel: () -> Unit,
-        chooseDialog: () -> Unit,
-        fileInfoDialog: () -> Unit,
-        renameDialog: () -> Unit
-    ) {
-        val file = filePath.fileName
-        AlertDialog(
-            onDismissRequest = { onCancel() },
-            text = {
-                @Composable
-                fun OperateButton(
-                    buttonText: String,
-                    enabled: Boolean = true,
-                    onClick: () -> Unit,
-                ) {
-                    OutlinedButton(
-                        modifier = Modifier
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
-                            .fillMaxWidth(),
-                        shape = MaterialTheme.shapes.large,
-                        onClick = {
-                            onCancel()
                             onClick()
                         },
                         enabled = enabled
@@ -442,68 +393,131 @@ object FileUtil {
                         Text(buttonText)
                     }
                 }
-                Row {
-                    Column(
-                        modifier = Modifier.weight(0.5f)
-                    ) {
-                        OperateButton(
-                            when (pathState) {
-                                "left" -> "复制 >"
-                                else -> "< 复制"
-                            }
-                        ) {
-                                copyFile(
-                                    filePath,
-                                    if (pathState == "left") {
-                                        File(rightPath.toString() + File.separator + file).toPath()
-                                    } else {
-                                        File(leftPath.toString() + File.separator + file).toPath()
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth(0.9f)
+                        .background(
+                            color = MaterialTheme.colorScheme.surfaceContainer,
+                            shape = RoundedCornerShape(28.dp)
+                        )
+                        .padding(16.dp)
+                ) {
+                    Text(
+                        text = filePath.fileName.toString(),
+                        modifier = Modifier.padding(8.dp),
+                        style = MaterialTheme.typography.labelLarge
+                    )
+                    AnimatedContent(
+                        targetState = selectUi,
+                        transitionSpec = {
+                            (fadeIn(animationSpec = tween(220, delayMillis = 90)) +
+                                    scaleIn(
+                                        initialScale = 0.92f,
+                                        animationSpec = tween(220, delayMillis = 90)
+                                    ))
+                                .togetherWith(fadeOut(animationSpec = tween(90)))
+                        },
+                    ) { targetState ->
+                        if (!targetState){
+                            Row {
+                                Column(
+                                    modifier = Modifier.weight(0.5f)
+                                ) {
+                                    OperateButton(
+                                        when (pathState) {
+                                            "left" -> "  复制 >"
+                                            else -> "< 复制  "
+                                        }
+                                    ) {
+                                        copyFile(
+                                            filePath,
+                                            if (pathState == "left") {
+                                                File(rightPath.toString() + File.separator + file).toPath()
+                                            } else {
+                                                File(leftPath.toString() + File.separator + file).toPath()
+                                            }
+                                        ).also { onCancel() }
                                     }
-                                )
-                        }
-                        OperateButton("打开方式", type != "folder") { chooseDialog() }
-                        OperateButton("重命名") { renameDialog() }
-                        OperateButton("属性") { fileInfoDialog() }
-                    }
-
-                    VerticalDivider(modifier = Modifier.height(230.dp))
-
-                    Column(
-                        modifier = Modifier.weight(0.5f)
-                    ) {
-                        OperateButton(
-                            when (pathState) {
-                                "left" -> "移动 >"
-                                else -> "< 移动"
-                            }
-                        ) {
-                            moveFile(
-                                filePath,
-                                if (pathState == "left") {
-                                    File(rightPath.toString() + File.separator + file).toPath()
-                                } else {
-                                    File(leftPath.toString() + File.separator + file).toPath()
+                                    OperateButton("分享") {
+                                        shareFile(
+                                            context = context,
+                                            filePath.toString()
+                                        ).also { onCancel() }
+                                    }
+                                    OperateButton("命名") { renameDialog().also { onCancel() } }
+                                    OperateButton("删除") { deleteFile(filePath).also { onCancel() } }
                                 }
-                            )
-                        }
-                        OperateButton("删除") { deleteFile(filePath) }
-                        OperateButton("分享") {
-                            shareFile(
-                                context = context,
-                                filePath.toString()
-                            )
-                        }
-                        OperateButton("取消") {
-                            onCancel()
+                                Column(
+                                    modifier = Modifier.weight(0.5f)
+                                ) {
+                                    OperateButton(
+                                        when (pathState) {
+                                            "left" -> "  移动 >"
+                                            else -> "< 移动  "
+                                        }
+                                    ) {
+                                        moveFile(
+                                            filePath,
+                                            if (pathState == "left") {
+                                                File(rightPath.toString() + File.separator + file).toPath()
+                                            } else {
+                                                File(leftPath.toString() + File.separator + file).toPath()
+                                            }
+                                        ).also { onCancel() }
+                                    }
+                                    OperateButton("打开方式", type != "folder") { selectUi = true }
+                                    OperateButton("属性") { fileInfoDialog().also { onCancel() } }
+                                    OperateButton("取消") { onCancel() }
+                                }
+                            }
+                        } else {
+                            Row {
+                                @Composable
+                                fun ChooseButton(
+                                    label: String,
+                                    type: String
+                                ) {
+                                    FilledTonalButton(
+                                        modifier = Modifier
+                                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                                            .fillMaxWidth(),
+                                        shape = MaterialTheme.shapes.large,
+                                        onClick = {
+                                            onCancel()
+                                            onFileClick(
+                                                context,
+                                                filePath.toString(),
+                                                type,
+                                                {}, { onApk() }
+                                            )
+                                        }
+                                    ) {
+                                        Text(label)
+                                    }
+                                }
+                                Column(
+                                    modifier = Modifier.weight(0.5f)
+                                ) {
+                                    ChooseButton("文本", "txt")
+                                    ChooseButton("视频", "video")
+                                    ChooseButton("图片", "image")
+                                    ChooseButton("安装包", "apk")
+                                }
+
+                                Column(
+                                    modifier = Modifier.weight(0.5f)
+                                ) {
+                                    ChooseButton("音频", "video")
+                                    ChooseButton("其他", "outside")
+                                    ChooseButton("压缩包", "zip")
+                                    OperateButton("取消") { onCancel() }
+                                }
+                            }
                         }
                     }
                 }
-            },
-            confirmButton = {
-            },
-            dismissButton = {
-
-            },
+            }
         )
     }
 

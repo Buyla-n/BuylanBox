@@ -89,7 +89,6 @@ import com.buyla.application.activity.FileSettings
 import com.buyla.application.data.FileStateData
 import com.buyla.application.util.ApkUtil.ApkInfoDialog
 import com.buyla.application.util.FileUtil
-import com.buyla.application.util.FileUtil.ChooseDialog
 import com.buyla.application.util.FileUtil.FileInfoDialog
 import com.buyla.application.util.FileUtil.FileParentItem
 import com.buyla.application.util.FileUtil.OperateDialog
@@ -440,7 +439,12 @@ object BrowseFile {
                                 if (!rightInside) {
                                     items(sortedFiles) { file ->
                                         val filePath = path.resolve(file)
-                                        FileItem(file, filePath, scope = rememberCoroutineScope(), state = "right")
+                                        FileItem(
+                                            file = file,
+                                            filePath = filePath,
+                                            scope = rememberCoroutineScope(),
+                                            state = "right"
+                                        )
                                     }
                                 } else {
                                     items(sortZipHeaders(filterZipEntries(completeDirectoriesFromHeaders(inFile), insidePath))) { file ->
@@ -727,7 +731,7 @@ object BrowseFile {
         state: String,
         inSideType: Boolean = false
     ) {
-        var showChooseDialog by remember { mutableStateOf(false) }
+        var showSelect by remember { mutableStateOf(false) }
         var showOperateDialog by remember { mutableStateOf(false) }
         var showRenameDialog by remember { mutableStateOf(false) }
         var showInstallDialog by remember { mutableStateOf(false) }
@@ -755,7 +759,7 @@ object BrowseFile {
                                     context = context,
                                     filePath = filePath.toString(),
                                     type = type,
-                                    onNull = { showChooseDialog = true },
+                                    onNull = { showSelect = true },
                                     onApk = { showInstallDialog = true }
                                 )
                             } else {
@@ -767,7 +771,7 @@ object BrowseFile {
                                     context = context,
                                     filePath = "${context.filesDir.absolutePath}/extract_zip/temp/${outSidePath.toPath().name}/$filePath",
                                     type = type,
-                                    onNull = { showChooseDialog = true },
+                                    onNull = { showSelect = true },
                                     onApk = { showInstallDialog = true }
                                 )
                             }
@@ -775,9 +779,11 @@ object BrowseFile {
 
                     },
                     onLongClick = {
-                        pathState = state
-                        showOperateDialog = true
-                        haptics.performHapticFeedback(HapticFeedbackType.ToggleOn)
+
+                            pathState = state
+                            showOperateDialog = true
+                            haptics.performHapticFeedback(HapticFeedbackType.ToggleOn)
+
                     },
                     indication = null,
                     interactionSource = null
@@ -798,8 +804,7 @@ object BrowseFile {
             )
         }
 
-        if (showChooseDialog) { ChooseDialog(onCancel = { showChooseDialog = false }, context = context, filePath = filePath, {showInstallDialog = true}) }
-        if (showOperateDialog) { OperateDialog(filePath = filePath, type = type, context = context, onCancel = { showOperateDialog = false }, chooseDialog = { showChooseDialog = true }, fileInfoDialog = { showFileInfoDialog = true }, renameDialog = { showRenameDialog = true }) }
+        if (showOperateDialog || showSelect) { OperateDialog(filePath = filePath, type = type, context = context, onCancel = { showOperateDialog = false .also { showSelect = false } }, showSelect = showSelect, fileInfoDialog = { showFileInfoDialog = true }, renameDialog = { showRenameDialog = true }, onApk = { showInstallDialog = true }) }
         if (showFileInfoDialog) { FileInfoDialog(filePath = filePath, onCancel = { showFileInfoDialog = false }) }
         if (showRenameDialog) { RenameFileDialog(filePath = filePath, onCancel = { showRenameDialog = false }) }
         if (showInstallDialog) { ApkInfoDialog(filePath = filePath, onCancel = { showInstallDialog = false }, findByName = false, context = context) }
