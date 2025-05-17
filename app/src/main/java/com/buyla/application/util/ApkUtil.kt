@@ -1,5 +1,6 @@
 package com.buyla.application.util
 
+import android.annotation.SuppressLint
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
@@ -8,8 +9,6 @@ import android.content.pm.PackageManager
 import android.provider.Settings
 import android.widget.Toast
 import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -34,14 +33,11 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -54,7 +50,6 @@ import androidx.core.net.toUri
 import com.buyla.application.R
 import com.buyla.application.util.FileUtil.onFileClick
 import com.buyla.application.util.Util.copyToClipboard
-import kotlinx.coroutines.launch
 import java.io.File
 import java.nio.file.Path
 import java.nio.file.Paths
@@ -94,18 +89,7 @@ object ApkUtil {
         packageName : String = ""
     ){
         val context = LocalContext.current
-        val scale = remember { Animatable(0.9f) } // 初始缩放值
 
-        // 启动动画（进入时）
-        LaunchedEffect(Unit) {
-
-            launch {
-                scale.animateTo(
-                    targetValue = 1f,
-                    animationSpec = tween(durationMillis = 300)
-                )
-            }
-        }
         AlertDialog(
             onDismissRequest = {
                 onCancel()
@@ -116,10 +100,6 @@ object ApkUtil {
                 usePlatformDefaultWidth = true
             ),
             modifier = Modifier
-                .graphicsLayer {
-                    scaleX = scale.value
-                    scaleY = scale.value
-                }
                 .animateContentSize(),
             title = { Text("安装包") },
             text = {
@@ -252,6 +232,7 @@ object ApkUtil {
         }
     }
 
+    @SuppressLint("UseCompatLoadingForDrawables")
     private fun getApkInfo(context: Context, apkPath: File, findByName: Boolean, packageName: String = ""): ApkInfo? {
         val packageManager = context.packageManager
 
@@ -259,7 +240,7 @@ object ApkUtil {
             val packageInfo = packageManager.getPackageArchiveInfo(apkPath.absolutePath, PackageManager.GET_ACTIVITIES) ?: return null
             packageInfo.applicationInfo!!.sourceDir = apkPath.absolutePath
             packageInfo.applicationInfo!!.publicSourceDir = apkPath.absolutePath
-            val isInstalled = try { packageManager.getPackageInfo(packageInfo.packageName, 0).firstInstallTime > 1 } catch (e: PackageManager.NameNotFoundException) { false }
+            val isInstalled = try { packageManager.getPackageInfo(packageInfo.packageName, 0).firstInstallTime > 1 } catch (_: PackageManager.NameNotFoundException) { false }
             val icon = try {
                 val iconId = packageInfo.applicationInfo!!.icon
                 if (iconId != 0) { packageManager.getResourcesForApplication(packageInfo.applicationInfo!!).getDrawable(iconId, null).toBitmap().asImageBitmap() } else { null }

@@ -13,9 +13,11 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
@@ -148,9 +150,16 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.Companion.fillMaxSize(),
                     targetState = selectedItem,
                     transitionSpec = {
-                        fadeIn() togetherWith
-                                fadeOut()
-                    }
+                        (fadeIn(
+                            animationSpec = tween(
+                                220,
+                                delayMillis = 0
+                            )
+                        ) + scaleIn(
+                            initialScale = 0.97f,
+                            animationSpec = tween(220, delayMillis = 0)
+                        )).togetherWith(fadeOut(animationSpec = tween(90)))
+                    },
                 ) { target ->
                     when (target) {
                         0 -> {

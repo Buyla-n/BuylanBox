@@ -3,6 +3,7 @@ package com.buyla.application.util
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Environment
 import android.text.format.Formatter.formatFileSize
 import android.widget.Toast
@@ -19,11 +20,14 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.InsertDriveFile
@@ -35,8 +39,14 @@ import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.FolderZip
 import androidx.compose.material.icons.rounded.FontDownload
+import androidx.compose.material.icons.rounded.Fullscreen
 import androidx.compose.material.icons.rounded.Image
 import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.MusicNote
+import androidx.compose.material.icons.rounded.Pause
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Repeat
+import androidx.compose.material.icons.rounded.RepeatOn
 import androidx.compose.material.icons.rounded.Storage
 import androidx.compose.material.icons.rounded.VideoFile
 import androidx.compose.material3.AlertDialog
@@ -46,16 +56,22 @@ import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -69,6 +85,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.core.content.FileProvider
+import androidx.media3.common.MediaItem
+import androidx.media3.exoplayer.ExoPlayer
 import com.buyla.application.R
 import com.buyla.application.activity.AudioPlayer
 import com.buyla.application.activity.FontPreview
@@ -77,6 +95,7 @@ import com.buyla.application.activity.TextEditor
 import com.buyla.application.activity.VideoPlayer
 import com.buyla.application.util.Util.fileVertical
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import net.lingala.zip4j.ZipFile
 import net.lingala.zip4j.model.FileHeader
@@ -95,15 +114,15 @@ object FileUtil {
     var sortSelectedIndex by mutableIntStateOf(0)
     var leftPath: Path by mutableStateOf(Paths.get(Environment.getExternalStorageDirectory().toString()))
     var rightPath: Path by mutableStateOf(Paths.get(Environment.getExternalStorageDirectory().toString()))
-    var rightPathInside: String by mutableStateOf("")
-    var leftPathInside: String by mutableStateOf("")
+    var rightPathInside by mutableStateOf("")
+    var leftPathInside by mutableStateOf("")
     var rightFileInside: List<FileHeader> by mutableStateOf(listOf())
     var leftFileInside: List<FileHeader> by mutableStateOf(listOf())
-    var rightInside: Boolean by mutableStateOf(false)
-    var leftInside: Boolean by mutableStateOf(false)
-    var pathState: String by mutableStateOf("left")
-    var rightFileName : String by mutableStateOf("")
-    var leftFileName : String by mutableStateOf("")
+    var rightInside by mutableStateOf(false)
+    var leftInside by mutableStateOf(false)
+    var pathState by mutableStateOf("left")
+    var rightFileName by mutableStateOf("")
+    var leftFileName by mutableStateOf("")
 
     fun getFileType(filePath: String): String {
         val file = File(filePath)
@@ -113,7 +132,7 @@ object FileUtil {
             file.extension in listOf("zip", "gz") -> "zip"
             file.extension in listOf("jpg", "jpeg", "png", "webp") -> "image"
             file.extension.equals("mp4", ignoreCase = true) -> "video"
-            file.extension in listOf("mp3", "wav", "m4a") -> "audio"
+            file.extension in listOf("mp3", "wav", "m4a", "ogg") -> "audio"
             file.extension in listOf("apk", "apks", "apex") -> "apk"
             file.extension in listOf("ttf", "otf", "ttc") -> "font"
             file.extension.equals("xml", ignoreCase = true) -> "xml"
@@ -158,8 +177,9 @@ object FileUtil {
         filePath: String,
         type: String,
         onNull: () -> Unit,
-        onApk: () -> Unit
-        ) {
+        onApk: () -> Unit,
+        onMusic: () -> Unit = {}
+    ) {
         when (type) {
             "folder" -> {
                 when (pathState) {
@@ -182,7 +202,7 @@ object FileUtil {
             "txt" -> { openActivity(context, filePath, TextEditor::class.java) }
             "image" -> { openActivity(context, filePath, ImagePlayer::class.java) }
             "video" -> { openActivity(context, filePath, VideoPlayer::class.java) }
-            "audio" -> { openActivity(context, filePath, AudioPlayer::class.java) }
+            "audio" -> { onMusic() }
             "outside" -> {
                 context.startActivity(
                     Intent(Intent.ACTION_VIEW).setDataAndType(
@@ -223,32 +243,27 @@ object FileUtil {
     }
 
     fun completeDirectoriesFromHeaders(zipHeaders: List<FileHeader>): List<FileHeader> {
-        val allEntries = mutableSetOf<FileHeader>() // 存储所有文件和目录
-        val directories = mutableSetOf<String>() // 存储补全的目录（以字符串形式表示路径）
+        val allEntries = mutableSetOf<FileHeader>()
+        val directories = mutableSetOf<String>()
 
-        // 遍历所有文件头
         zipHeaders.forEach { header ->
-            allEntries.add(header) // 添加文件或显式声明的目录
+            allEntries.add(header)
 
-            // 递归提取父目录
-            var currentPath = header.fileName // 假设 FileHeader 有 fileName 属性
+            var currentPath = header.fileName
             while (currentPath.contains("/")) {
                 currentPath = currentPath.substringBeforeLast("/")
-                directories.add("$currentPath/") // 确保目录以 "/" 结尾
+                directories.add("$currentPath/")
             }
         }
 
-        // 转换补全的目录为虚拟 FileHeader
         val directoryHeaders = directories.map { dirPath ->
-            val directoryHeader = FileHeader() // 创建空的 FileHeader
-            directoryHeader.fileName = dirPath // 设置目录名称
+            val directoryHeader = FileHeader()
+            directoryHeader.fileName = dirPath
             directoryHeader
         }
 
-        // 合并显式文件头和补全的目录
         allEntries.addAll(directoryHeaders)
 
-        // 返回排序后的结果
         return allEntries.toList()
     }
 
@@ -425,26 +440,11 @@ object FileUtil {
                                     modifier = Modifier.weight(0.5f)
                                 ) {
                                     OperateButton(
-                                        when (pathState) {
-                                            "left" -> "  复制 >"
-                                            else -> "< 复制  "
-                                        }
+                                        if (pathState == "left") "  复制 >" else "< 复制  "
                                     ) {
-                                        copyFile(
-                                            filePath,
-                                            if (pathState == "left") {
-                                                File(rightPath.toString() + File.separator + file).toPath()
-                                            } else {
-                                                File(leftPath.toString() + File.separator + file).toPath()
-                                            }
-                                        ).also { onCancel() }
+                                        copyFile(filePath, Path((if (pathState == "left") rightPath else leftPath).toString() + "/" + file)).also { onCancel() }
                                     }
-                                    OperateButton("分享") {
-                                        shareFile(
-                                            context = context,
-                                            filePath.toString()
-                                        ).also { onCancel() }
-                                    }
+                                    OperateButton("分享") { shareFile(context = context, filePath = filePath.toString()).also { onCancel() }}
                                     OperateButton("命名") { renameDialog().also { onCancel() } }
                                     OperateButton("删除") { deleteFile(filePath).also { onCancel() } }
                                 }
@@ -452,21 +452,11 @@ object FileUtil {
                                     modifier = Modifier.weight(0.5f)
                                 ) {
                                     OperateButton(
-                                        when (pathState) {
-                                            "left" -> "  移动 >"
-                                            else -> "< 移动  "
-                                        }
+                                        if (pathState == "left") "  移动 >" else "< 移动  "
                                     ) {
-                                        moveFile(
-                                            filePath,
-                                            if (pathState == "left") {
-                                                File(rightPath.toString() + File.separator + file).toPath()
-                                            } else {
-                                                File(leftPath.toString() + File.separator + file).toPath()
-                                            }
-                                        ).also { onCancel() }
+                                        moveFile(filePath, Path((if (pathState == "left") rightPath else leftPath).toString() + "/" + file)).also { onCancel() }
                                     }
-                                    OperateButton("打开方式", type != "folder") { selectUi = true }
+                                    OperateButton("打开", type != "folder") { selectUi = true }
                                     OperateButton("属性") { fileInfoDialog().also { onCancel() } }
                                     OperateButton("取消") { onCancel() }
                                 }
@@ -531,28 +521,33 @@ object FileUtil {
             onDismissRequest = { onCancel() },
             title = { Text("命名") },
             text = {
-                OutlinedTextField(
+                TextField(
                     value = textFieldValue,
                     onValueChange = { textFieldValue = it },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp)
+                        .padding(horizontal = 16.dp),
+                    shape = MaterialTheme.shapes.large,
+                    colors = TextFieldDefaults.colors(
+                        focusedIndicatorColor = Color.Transparent,
+                        unfocusedIndicatorColor = Color.Transparent
+                    )
                 )
             },
             confirmButton = {
-                Button(onClick = {
-                    onCancel()
-                    val sourceFile = File(filePath.toString())
-                    val targetFile =
-                        File(filePath.parent.toString() + File.separator + textFieldValue)
-                    sourceFile.renameTo(targetFile)
-
-                }) {
+                Button(
+                    onClick = {
+                        onCancel()
+                        val sourceFile = File(filePath.toString())
+                        val targetFile = File(filePath.parent.toString() + "/" + textFieldValue)
+                        sourceFile.renameTo(targetFile)
+                    }
+                ) {
                     Text(stringResource(R.string.confirm))
                 }
             },
             dismissButton = {
-                TextButton(onClick = { onCancel() }) {
+                FilledTonalButton(onClick = { onCancel() }) {
                     Text(stringResource(R.string.cancel))
                 }
             }
@@ -693,6 +688,183 @@ object FileUtil {
             confirmButton = {
                 Button(onClick = { onCancel() }) {
                     Text(stringResource(R.string.confirm))
+                }
+            }
+        )
+    }
+
+    @Composable
+    fun AudioDialog(
+        filePath: Path,
+        onCancel: () -> Unit,
+    ) {
+        Dialog(
+            onDismissRequest = { onCancel() },
+            content = {
+                val context = LocalContext.current
+                val exoPlayer = remember {
+                    ExoPlayer.Builder(context).build().apply {
+                        val mediaItem = MediaItem.fromUri(Uri.fromFile(File(filePath.toString())))
+                        setMediaItem(mediaItem)
+                        prepare()
+                    }
+                }
+
+                var isPlaying by remember { mutableStateOf(true) }
+                var isLooping by remember { mutableStateOf(false) }
+                var playbackSpeed by remember { mutableFloatStateOf(1f) }
+                var currentPosition by remember { mutableLongStateOf(0L) }
+                var totalDuration by remember { mutableLongStateOf(0L) }
+
+                DisposableEffect(Unit) {
+                    onDispose {
+                        exoPlayer.release()
+                    }
+                }
+
+                LaunchedEffect(exoPlayer) {
+                    exoPlayer.play()
+                    while (true) {
+                        currentPosition = exoPlayer.currentPosition
+                        totalDuration = exoPlayer.duration
+                        if (totalDuration in 1..currentPosition && !isLooping) {
+                            exoPlayer.pause()
+                            isPlaying = false
+                        }
+                        delay(1)
+                    }
+                }
+                Column(
+                    modifier = Modifier
+                        .padding(16.dp)
+                        .background(MaterialTheme.colorScheme.background, MaterialTheme.shapes.extraLarge),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Spacer(modifier = Modifier.padding(vertical = 8.dp))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(0.9f)
+                            .background(
+                                MaterialTheme.colorScheme.primaryContainer,
+                                MaterialTheme.shapes.medium
+                            )
+                            .padding(vertical = 8.dp),
+                        contentAlignment = Alignment.CenterStart
+                    ) {
+                        Text(
+                            File(filePath.toString()).name,
+                            style = MaterialTheme.typography.titleLarge,
+                            modifier = Modifier.padding(start = 16.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.padding(vertical = 8.dp))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(0.9f)
+                            .height(128.dp)
+                            .background(
+                                MaterialTheme.colorScheme.primaryContainer,
+                                MaterialTheme.shapes.medium
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.MusicNote,
+                            contentDescription = "音乐图标",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(100.dp)
+                        )
+                    }
+
+                    Column(
+                        modifier = Modifier
+                            .padding(16.dp)
+                            .background(
+                                MaterialTheme.colorScheme.surfaceContainerLow,
+                                MaterialTheme.shapes.medium
+                            )
+                    ) {
+                        if (totalDuration > 0) {
+                            Slider(
+                                value = currentPosition.toFloat().coerceIn(0f, totalDuration.toFloat()),
+                                onValueChange = { newValue ->
+                                    exoPlayer.seekTo(newValue.toLong())
+                                },
+                                valueRange = 0f..totalDuration.toFloat(),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 24.dp, vertical = 16.dp)
+                            )
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth()
+                                .padding(bottom = 16.dp, end = 14.dp, start = 4.dp),
+                            horizontalArrangement = Arrangement.SpaceEvenly
+                        ) {
+                            TextButton(onClick = {
+                                playbackSpeed = when (playbackSpeed) {
+                                    0.5f -> 1f
+                                    1f -> 1.5f
+                                    1.5f -> 2f
+                                    else -> 0.5f
+                                }
+                                exoPlayer.setPlaybackSpeed(playbackSpeed)
+                            }) {
+                                Text("$playbackSpeed x")
+                            }
+
+                            IconButton(onClick = {
+                                isLooping = !isLooping
+                                exoPlayer.repeatMode =
+                                    if (isLooping) ExoPlayer.REPEAT_MODE_ONE else ExoPlayer.REPEAT_MODE_OFF
+                            }) {
+                                Icon(
+                                    imageVector = if (isLooping) {
+                                        Icons.Rounded.RepeatOn
+                                    } else {
+                                        Icons.Rounded.Repeat
+                                    },
+                                    contentDescription = if (isLooping) "关闭循环" else "开启循环"
+                                )
+                            }
+
+                            IconButton(
+                                onClick = {
+                                    openActivity(context, filePath.toString(), AudioPlayer::class.java)
+                                }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Fullscreen,
+                                    contentDescription = null,
+                                )
+                            }
+
+                            IconButton(
+                                onClick = {
+                                    if (isPlaying) {
+                                        exoPlayer.pause()
+                                    } else {
+                                        exoPlayer.play()
+                                    }
+                                    isPlaying = !isPlaying
+                                    if (totalDuration in 1..currentPosition) {
+                                        exoPlayer.seekTo(0)
+                                    }
+                                }
+                            ) {
+                                Icon(
+                                    imageVector = if (isPlaying) {
+                                        Icons.Rounded.Pause
+                                    } else {
+                                        Icons.Rounded.PlayArrow
+                                    },
+                                    contentDescription = if (isPlaying) "暂停" else "播放",
+                                )
+                            }
+                        }
+                    }
                 }
             }
         )

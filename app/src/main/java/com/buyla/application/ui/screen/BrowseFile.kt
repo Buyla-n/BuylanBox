@@ -30,13 +30,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Help
 import androidx.compose.material.icons.automirrored.filled.Sort
-import androidx.compose.material.icons.filled.FolderOpen
-import androidx.compose.material.icons.filled.InstallMobile
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Menu
-import androidx.compose.material.icons.twotone.Settings
+import androidx.compose.material.icons.rounded.MoveToInbox
+import androidx.compose.material.icons.rounded.Start
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
@@ -85,10 +83,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
 import com.buyla.application.R
-import com.buyla.application.activity.FileSettings
 import com.buyla.application.data.FileStateData
 import com.buyla.application.util.ApkUtil.ApkInfoDialog
 import com.buyla.application.util.FileUtil
+import com.buyla.application.util.FileUtil.AudioDialog
 import com.buyla.application.util.FileUtil.FileInfoDialog
 import com.buyla.application.util.FileUtil.FileParentItem
 import com.buyla.application.util.FileUtil.OperateDialog
@@ -489,7 +487,7 @@ object BrowseFile {
                     ) {
                         Spacer(Modifier.height(12.dp))
                         Text(
-                            "文件更改",
+                            "BuylaBox",
                             modifier = Modifier.padding(16.dp),
                             style = MaterialTheme.typography.titleLarge
                         )
@@ -539,7 +537,7 @@ object BrowseFile {
                                     drawerState.close()
                                 }
                             },
-                            icon = { Icon(Icons.Filled.FolderOpen, contentDescription = null) },
+                            icon = { Icon(Icons.Rounded.Start, contentDescription = null) },
                             badge = {
                                 BadgedBox(
                                     badge = {
@@ -574,7 +572,7 @@ object BrowseFile {
                                     drawerState.close()
                                 }
                             },
-                            icon = { Icon(Icons.Filled.InstallMobile, contentDescription = null) },
+                            icon = { Icon(Icons.Rounded.MoveToInbox, contentDescription = null) },
                             badge = {
                                 BadgedBox(
                                     badge = {
@@ -604,7 +602,7 @@ object BrowseFile {
                         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
                         Text(
-                            "摘要",
+                            "设置",
                             modifier = Modifier.padding(16.dp),
                             style = MaterialTheme.typography.titleMedium
                         )
@@ -626,27 +624,6 @@ object BrowseFile {
                                 }
                             },
                             onClick = { showSortDialog = true }
-                        )
-                        NavigationDrawerItem(
-                            label = { Text("Help and feedback") },
-                            selected = false,
-                            icon = {
-                                Icon(
-                                    Icons.AutoMirrored.Filled.Help,
-                                    contentDescription = null
-                                )
-                            },
-                            onClick = { /* Handle click */ },
-                        )
-                        NavigationDrawerItem(
-                            label = { Text("行为设置") },
-                            selected = false,
-                            icon = { Icon(Icons.TwoTone.Settings, contentDescription = null) },
-                            onClick = {
-                                context.startActivity(
-                                    Intent(context, FileSettings::class.java)
-                                )
-                            },
                         )
                         Spacer(Modifier.height(12.dp))
                     }
@@ -733,6 +710,7 @@ object BrowseFile {
     ) {
         var showSelect by remember { mutableStateOf(false) }
         var showOperateDialog by remember { mutableStateOf(false) }
+        var showAudioDialog by remember { mutableStateOf(false) }
         var showRenameDialog by remember { mutableStateOf(false) }
         var showInstallDialog by remember { mutableStateOf(false) }
         var showFileInfoDialog by remember { mutableStateOf(false) }
@@ -760,7 +738,8 @@ object BrowseFile {
                                     filePath = filePath.toString(),
                                     type = type,
                                     onNull = { showSelect = true },
-                                    onApk = { showInstallDialog = true }
+                                    onApk = { showInstallDialog = true },
+                                    onMusic = { showAudioDialog = true }
                                 )
                             } else {
                                 net.lingala.zip4j.ZipFile(outSidePath).extractFile(
@@ -772,18 +751,17 @@ object BrowseFile {
                                     filePath = "${context.filesDir.absolutePath}/extract_zip/temp/${outSidePath.toPath().name}/$filePath",
                                     type = type,
                                     onNull = { showSelect = true },
-                                    onApk = { showInstallDialog = true }
+                                    onApk = { showInstallDialog = true },
+                                    onMusic = { showAudioDialog = true }
                                 )
                             }
                         }
 
                     },
                     onLongClick = {
-
-                            pathState = state
-                            showOperateDialog = true
-                            haptics.performHapticFeedback(HapticFeedbackType.ToggleOn)
-
+                        pathState = state
+                        showOperateDialog = true
+                        haptics.performHapticFeedback(HapticFeedbackType.ToggleOn)
                     },
                     indication = null,
                     interactionSource = null
@@ -804,10 +782,35 @@ object BrowseFile {
             )
         }
 
-        if (showOperateDialog || showSelect) { OperateDialog(filePath = filePath, type = type, context = context, onCancel = { showOperateDialog = false .also { showSelect = false } }, showSelect = showSelect, fileInfoDialog = { showFileInfoDialog = true }, renameDialog = { showRenameDialog = true }, onApk = { showInstallDialog = true }) }
-        if (showFileInfoDialog) { FileInfoDialog(filePath = filePath, onCancel = { showFileInfoDialog = false }) }
-        if (showRenameDialog) { RenameFileDialog(filePath = filePath, onCancel = { showRenameDialog = false }) }
-        if (showInstallDialog) { ApkInfoDialog(filePath = filePath, onCancel = { showInstallDialog = false }, findByName = false, context = context) }
+        if (showOperateDialog || showSelect) {
+            OperateDialog(
+                filePath = filePath,
+                type = type,
+                context = context,
+                onCancel = { showOperateDialog = false.also { showSelect = false } },
+                showSelect = showSelect,
+                fileInfoDialog = { showFileInfoDialog = true },
+                renameDialog = { showRenameDialog = true },
+                onApk = { showInstallDialog = true }
+            )
+        }
+        if (showFileInfoDialog) {
+            FileInfoDialog(filePath = filePath, onCancel = { showFileInfoDialog = false })
+        }
+        if (showRenameDialog) {
+            RenameFileDialog(filePath = filePath, onCancel = { showRenameDialog = false })
+        }
+        if (showInstallDialog) {
+            ApkInfoDialog(
+                filePath = filePath,
+                onCancel = { showInstallDialog = false },
+                findByName = false,
+                context = context
+            )
+        }
+        if (showAudioDialog) {
+            AudioDialog(filePath = filePath, onCancel = {showAudioDialog = false})
+        }
     }
 
     fun filterZipEntries(entries: List<FileHeader>, targetPath: String): List<FileHeader> {
