@@ -33,10 +33,8 @@ class IntReader(private var stream: InputStream?, private var bigEndian: Boolean
 		reset(null, false)
 	}
 
-	@Throws(IOException::class)
 	fun readInt(): Int = readInt(4)
 
-	@Throws(IOException::class)
 	fun readInt(length: Int): Int {
 		if (length < 0 || length > 4) {
 			throw IllegalArgumentException()
@@ -59,14 +57,12 @@ class IntReader(private var stream: InputStream?, private var bigEndian: Boolean
 		return result
 	}
 
-	@Throws(IOException::class)
 	fun readIntArray(length: Int): IntArray {
 		val array = IntArray(length)
 		readIntArray(array, 0, length)
 		return array
 	}
 
-	@Throws(IOException::class)
 	fun readIntArray(array: IntArray, offset: Int, length: Int) {
 		var currentOffset = offset
 		var remaining = length
@@ -76,7 +72,6 @@ class IntReader(private var stream: InputStream?, private var bigEndian: Boolean
 		}
 	}
 
-	@Throws(IOException::class)
 	fun skip(bytes: Int) {
 		if (bytes <= 0) {
 			return
@@ -88,6 +83,5 @@ class IntReader(private var stream: InputStream?, private var bigEndian: Boolean
 		}
 	}
 
-	@Throws(IOException::class)
 	fun skipInt() = skip(4)
 }

@@ -101,7 +101,6 @@ import com.buyla.application.util.FileUtil.leftInside
 import com.buyla.application.util.FileUtil.leftPath
 import com.buyla.application.util.FileUtil.leftPathInside
 import com.buyla.application.util.FileUtil.onFileClick
-import com.buyla.application.util.FileUtil.pathState
 import com.buyla.application.util.FileUtil.rightFileInside
 import com.buyla.application.util.FileUtil.rightFileName
 import com.buyla.application.util.FileUtil.rightInside
@@ -142,39 +141,31 @@ object BrowseFile {
         val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
         val scope = rememberCoroutineScope()
 
-        BackHandler(onBack = {
-            scope.launch {
-                if (drawerState.isClosed) {
-                    if (lastItem == "left") {
-                        if (!leftInside) {
-                            val parentPath = leftPath.parent
-                            if (parentPath != null) leftPath = parentPath
+        BackHandler(
+            onBack = {
+                scope.launch {
+                    if (drawerState.isClosed) {
+                        val isLeft = lastItem == "left"
+                        val (pathInside, path, isInside) = if (isLeft) Triple(leftPathInside, leftPath, leftInside) else Triple(rightPathInside, rightPath, rightInside)
+                        if (!isInside) {
+                            val parent = path.parent ?: Path("/")
+                            if (isLeft) leftPath = parent else rightPath = parent
                         } else {
-                            if (leftPathInside == ""){
-                                leftInside = false
+                            if (pathInside == "") {
+                                if (isLeft) leftInside = false else rightInside = false
                             } else {
-                                leftPathInside = if (leftPathInside.contains("/")) leftPathInside.substringBeforeLast("/") else ""
+                                val parent = if (pathInside.contains("/")) pathInside.substringBeforeLast("/") else ""
+                                if (isLeft) leftPathInside = parent else rightPathInside = parent
                             }
                         }
                     } else {
-                        if (!rightInside) {
-                            val parentPath = rightPath.parent
-                            if (parentPath != null) rightPath = parentPath
-                        } else {
-                            if (rightPathInside == ""){
-                                rightInside = false
-                            } else {
-                                rightPathInside = if (rightPathInside.contains("/")) rightPathInside.substringBeforeLast("/") else ""
-                            }
-                        }
+                        drawerState.close()
                     }
-                } else {
-                    drawerState.close()
                 }
             }
-        })
+        )
 
-        FileDrawer(scope, drawerState, context, listOf("名称", "类型", "大小", "时间"), lastItem = lastItem) {
+        FileDrawer(scope, drawerState, listOf("名称", "类型", "大小", "时间"), lastItem = lastItem) {
             var isError by remember { mutableStateOf(false) }
             // here is file screen
             Scaffold(
@@ -312,7 +303,7 @@ object BrowseFile {
                         onRefresh = {
                             isRefreshingLeft = true
                             CoroutineScope(Dispatchers.IO).launch {
-                                delay(50)
+                                delay(150)
                                 isRefreshingLeft = false
                             }
                         },
@@ -324,31 +315,21 @@ object BrowseFile {
                             transitionSpec = {
                                 (fadeIn(animationSpec = tween(330, delayMillis = 0)) + scaleIn(initialScale = 0.99f, animationSpec = tween(330, delayMillis = 0))).togetherWith(fadeOut(animationSpec = tween(0)))
                             }
-                        ) { ( path, inFile, leftInside, insidePath) ->
+                        ) { ( path, inFile, isInside, insidePath) ->
                             //left
-                            val sortedFiles = if (!leftInside) remember(path, sortSelectedIndex) { getSortedFiles(path, sortSelectedIndex) } else listOf()
+                            val sortedFiles = if (!isInside) remember(path, sortSelectedIndex) { getSortedFiles(path, sortSelectedIndex) } else listOf()
                             LazyColumn(
-                                    modifier = Modifier
-                                        .pointerInput(Unit) {
-                                            awaitPointerEventScope {
-                                                while (true) {
-                                                    if (awaitPointerEvent().type == PointerEventType.Press) {
-                                                        lastItem = "left"
-                                                    }
-                                                }
-                                            }
-                                        }
-                                ) {
-                                    item {
-                                        if (leftPath.toString() != "/")
+                                modifier = Modifier.pointerInput(Unit) { awaitPointerEventScope { while (true) { if (awaitPointerEvent().type == PointerEventType.Press) { lastItem = "left" } } } }
+                            ) {
+                                item {
+                                    if (leftPath.toString() != "/"){
                                         FileParentItem(
                                             onClick = {
-                                                if (!leftInside) {
-                                                    val parentPath = leftPath.parent
-                                                    if (parentPath != null) leftPath = parentPath
+                                                if (!isInside) {
+                                                    leftPath = leftPath.parent ?: Path("/")
                                                 } else {
-                                                    if (insidePath == ""){
-                                                        FileUtil.leftInside = false
+                                                    if (insidePath == "") {
+                                                        leftInside = false
                                                     } else {
                                                         leftPathInside = if (leftPathInside.contains("/")) leftPathInside.substringBeforeLast("/") else ""
                                                     }
@@ -356,30 +337,25 @@ object BrowseFile {
                                             }
                                         )
                                     }
-                                    if (!leftInside) {
-                                        items(sortedFiles) { file ->
-                                            val filePath = path.resolve(file)
-                                            FileItem(
-                                                file = file,
-                                                filePath = filePath,
-                                                scope = rememberCoroutineScope(),
-                                                state = "left"
-                                            )
-                                        }
-                                    } else {
-                                        items(sortZipHeaders(filterZipEntries(completeDirectoriesFromHeaders(inFile), insidePath))) { file ->
-                                            val fileName = file.fileName.removePrefix("$insidePath/")
-                                            FileItem(
-                                                file = fileName,
-                                                filePath = Path(insidePath).resolve(fileName),
-                                                outSidePath = leftPath.resolve(leftFileName).toString(),
-                                                scope = rememberCoroutineScope(),
-                                                state = "left",
-                                                inSideType = true
-                                            )
-                                        }
+                                }
+                                if (!isInside) {
+                                    items(sortedFiles) { file ->
+                                        FileItem(
+                                            filePath = path.resolve(file).toString(),
+                                            activePanel = "left"
+                                        )
+                                    }
+                                } else {
+                                    items(sortZipHeaders(filterZipEntries(completeDirectoriesFromHeaders(inFile), insidePath))) { file ->
+                                        FileItem(
+                                            filePath = file.fileName,
+                                            outerPath = leftPath.resolve(leftFileName).toString(),
+                                            activePanel = "left",
+                                            isInner = true
+                                        )
                                     }
                                 }
+                            }
                         }
                     }
 
@@ -402,8 +378,8 @@ object BrowseFile {
                             transitionSpec = {
                                 (fadeIn(animationSpec = tween(330, delayMillis = 0)) + scaleIn(initialScale = 0.99f, animationSpec = tween(330, delayMillis = 0))).togetherWith(fadeOut(animationSpec = tween(0)))
                             }
-                        ) { (path, inFile, rightInside, insidePath) ->
-                            val sortedFiles = if (!rightInside) remember(path, sortSelectedIndex) { getSortedFiles(path, sortSelectedIndex) } else listOf()
+                        ) { (path, inFile, isInside, insidePath) ->
+                            val sortedFiles = if (!isInside) remember(path, sortSelectedIndex) { getSortedFiles(path, sortSelectedIndex) } else listOf()
                             //right
                             LazyColumn(
                                 modifier = Modifier
@@ -421,12 +397,11 @@ object BrowseFile {
                                     if (rightPath.toString() != "/")
                                     FileParentItem(
                                         onClick = {
-                                            if (!rightInside){
-                                                val parentPath = rightPath.parent
-                                                if (parentPath != null) rightPath = parentPath
+                                            if (!isInside){
+                                                rightPath = rightPath.parent ?: Path("/")
                                             } else {
                                                 if (insidePath == ""){
-                                                    FileUtil.rightInside = false
+                                                    rightInside = false
                                                 } else {
                                                     rightPathInside = if (rightPathInside.contains("/")) rightPathInside.substringBeforeLast("/") else ""
                                                 }
@@ -434,26 +409,20 @@ object BrowseFile {
                                         }
                                     )
                                 }
-                                if (!rightInside) {
+                                if (!isInside) {
                                     items(sortedFiles) { file ->
-                                        val filePath = path.resolve(file)
                                         FileItem(
-                                            file = file,
-                                            filePath = filePath,
-                                            scope = rememberCoroutineScope(),
-                                            state = "right"
+                                            filePath = path.resolve(file).toString(),
+                                            activePanel = "right"
                                         )
                                     }
                                 } else {
                                     items(sortZipHeaders(filterZipEntries(completeDirectoriesFromHeaders(inFile), insidePath))) { file ->
-                                        val fileName = file.fileName.removePrefix("$insidePath/")
                                         FileItem(
-                                            file = fileName,
-                                            filePath = Path(insidePath).resolve(fileName),
-                                            outSidePath = rightPath.resolve(rightFileName).toString(),
-                                            scope = rememberCoroutineScope(),
-                                            state = "right",
-                                            inSideType = true
+                                            filePath = file.fileName,
+                                            outerPath = rightPath.resolve(rightFileName).toString(),
+                                            activePanel = "right",
+                                            isInner = true
                                         )
                                     }
                                 }
@@ -469,7 +438,6 @@ object BrowseFile {
     fun FileDrawer(
         scope: CoroutineScope,
         drawerState: DrawerState,
-        context: Context,
         sortOptions: List<String>,
         lastItem: String,
         content: @Composable (  ) -> Unit
@@ -701,12 +669,10 @@ object BrowseFile {
     @OptIn(ExperimentalFoundationApi::class)
     @Composable
     fun FileItem(
-        file: String,
-        filePath: Path,
-        outSidePath : String = "",
-        scope: CoroutineScope,
-        state: String,
-        inSideType: Boolean = false
+        filePath: String,
+        outerPath : String = "",
+        activePanel: String,
+        isInner: Boolean = false
     ) {
         var showSelect by remember { mutableStateOf(false) }
         var showOperateDialog by remember { mutableStateOf(false) }
@@ -715,8 +681,11 @@ object BrowseFile {
         var showInstallDialog by remember { mutableStateOf(false) }
         var showFileInfoDialog by remember { mutableStateOf(false) }
         val context = LocalContext.current
-        val type = if (!inSideType) getFileType(filePath.toString()) else getZipFileType(file)
+        val currentPath = Path(filePath)
+        val file = currentPath.fileName.toString()
+        val type = if (!isInner) getFileType(filePath) else getZipFileType(filePath)
         val haptics = LocalHapticFeedback.current
+        val scope = rememberCoroutineScope()
 
         Row(
             modifier = Modifier
@@ -731,24 +700,24 @@ object BrowseFile {
                 .combinedClickable(
                     onClick = {
                         scope.launch {
-                            pathState = state
-                            if (!inSideType || type == "folder") {
+                            FileUtil.activePanel = activePanel
+                            if (!isInner || type == "folder") {
                                 onFileClick(
                                     context = context,
-                                    filePath = filePath.toString(),
+                                    filePath = filePath,
                                     type = type,
                                     onNull = { showSelect = true },
                                     onApk = { showInstallDialog = true },
                                     onMusic = { showAudioDialog = true }
                                 )
                             } else {
-                                net.lingala.zip4j.ZipFile(outSidePath).extractFile(
-                                    filePath.toString(),
-                                    "${context.filesDir.absolutePath}/extract_zip/temp/${outSidePath.toPath().name}/"
+                                net.lingala.zip4j.ZipFile(outerPath).extractFile(
+                                    filePath,
+                                    "${context.filesDir.absolutePath}/extract_zip/temp/${outerPath.toPath().name}/"
                                 )
                                 onFileClick(
                                     context = context,
-                                    filePath = "${context.filesDir.absolutePath}/extract_zip/temp/${outSidePath.toPath().name}/$filePath",
+                                    filePath = "${context.filesDir.absolutePath}/extract_zip/temp/${outerPath.toPath().name}/$currentPath",
                                     type = type,
                                     onNull = { showSelect = true },
                                     onApk = { showInstallDialog = true },
@@ -759,7 +728,7 @@ object BrowseFile {
 
                     },
                     onLongClick = {
-                        pathState = state
+                        FileUtil.activePanel = activePanel
                         showOperateDialog = true
                         haptics.performHapticFeedback(HapticFeedbackType.ToggleOn)
                     },
@@ -784,7 +753,7 @@ object BrowseFile {
 
         if (showOperateDialog || showSelect) {
             OperateDialog(
-                filePath = filePath,
+                filePath = currentPath,
                 type = type,
                 context = context,
                 onCancel = { showOperateDialog = false.also { showSelect = false } },
@@ -795,21 +764,21 @@ object BrowseFile {
             )
         }
         if (showFileInfoDialog) {
-            FileInfoDialog(filePath = filePath, onCancel = { showFileInfoDialog = false })
+            FileInfoDialog(filePath = currentPath, onCancel = { showFileInfoDialog = false })
         }
         if (showRenameDialog) {
-            RenameFileDialog(filePath = filePath, onCancel = { showRenameDialog = false })
+            RenameFileDialog(filePath = currentPath, onCancel = { showRenameDialog = false })
         }
         if (showInstallDialog) {
             ApkInfoDialog(
-                filePath = filePath,
+                filePath = currentPath,
                 onCancel = { showInstallDialog = false },
                 findByName = false,
                 context = context
             )
         }
         if (showAudioDialog) {
-            AudioDialog(filePath = filePath, onCancel = {showAudioDialog = false})
+            AudioDialog(filePath = currentPath, onCancel = {showAudioDialog = false})
         }
     }
 

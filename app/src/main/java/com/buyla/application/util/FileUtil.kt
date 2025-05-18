@@ -82,7 +82,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.core.content.FileProvider
 import androidx.media3.common.MediaItem
@@ -120,7 +119,7 @@ object FileUtil {
     var leftFileInside: List<FileHeader> by mutableStateOf(listOf())
     var rightInside by mutableStateOf(false)
     var leftInside by mutableStateOf(false)
-    var pathState by mutableStateOf("left")
+    var activePanel by mutableStateOf("left")
     var rightFileName by mutableStateOf("")
     var leftFileName by mutableStateOf("")
 
@@ -182,7 +181,7 @@ object FileUtil {
     ) {
         when (type) {
             "folder" -> {
-                when (pathState) {
+                when (activePanel) {
                     "left" -> {
                         if (!leftInside) {
                             leftPath = Path(filePath)
@@ -220,7 +219,7 @@ object FileUtil {
                 openActivity(context, filePath, TextEditor::class.java)
             }
             "zip" -> {
-                when (pathState) {
+                when (activePanel) {
                     "left" -> {
                         leftFileName = Path(filePath).name
                         leftInside = true
@@ -233,7 +232,7 @@ object FileUtil {
                     }
                 }
                 ZipFile(filePath).use { zip ->
-                    if (pathState == "left") leftFileInside = zip.fileHeaders.toList() else rightFileInside = zip.fileHeaders.toList()
+                    if (activePanel == "left") leftFileInside = zip.fileHeaders.toList() else rightFileInside = zip.fileHeaders.toList()
                 }
             }
             "font" -> {
@@ -353,9 +352,13 @@ object FileUtil {
                     color = MaterialTheme.colorScheme.primaryContainer,
                     shape = MaterialTheme.shapes.small
                 )
-                .combinedClickable(onClick = {
-                    onClick()
-                }, indication = null, interactionSource = null),
+                .combinedClickable(
+                    onClick = {
+                        onClick()
+                    },
+                    indication = null,
+                    interactionSource = null
+                ),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
@@ -363,12 +366,6 @@ object FileUtil {
                 contentDescription = null,
                 modifier = Modifier.padding(start = 8.dp),
                 tint = MaterialTheme.colorScheme.onPrimaryContainer
-            )
-            Text(
-                text = "..",
-                fontSize = 12.sp,
-                modifier = Modifier . padding (horizontal = 16.dp),
-                color = MaterialTheme.colorScheme.onPrimaryContainer
             )
         }
     }
@@ -440,9 +437,9 @@ object FileUtil {
                                     modifier = Modifier.weight(0.5f)
                                 ) {
                                     OperateButton(
-                                        if (pathState == "left") "  复制 >" else "< 复制  "
+                                        if (activePanel == "left") "  复制 >" else "< 复制  "
                                     ) {
-                                        copyFile(filePath, Path((if (pathState == "left") rightPath else leftPath).toString() + "/" + file)).also { onCancel() }
+                                        copyFile(filePath, Path((if (activePanel == "left") rightPath else leftPath).toString() + "/" + file)).also { onCancel() }
                                     }
                                     OperateButton("分享") { shareFile(context = context, filePath = filePath.toString()).also { onCancel() }}
                                     OperateButton("命名") { renameDialog().also { onCancel() } }
@@ -452,9 +449,9 @@ object FileUtil {
                                     modifier = Modifier.weight(0.5f)
                                 ) {
                                     OperateButton(
-                                        if (pathState == "left") "  移动 >" else "< 移动  "
+                                        if (activePanel == "left") "  移动 >" else "< 移动  "
                                     ) {
-                                        moveFile(filePath, Path((if (pathState == "left") rightPath else leftPath).toString() + "/" + file)).also { onCancel() }
+                                        moveFile(filePath, Path((if (activePanel == "left") rightPath else leftPath).toString() + "/" + file)).also { onCancel() }
                                     }
                                     OperateButton("打开", type != "folder") { selectUi = true }
                                     OperateButton("属性") { fileInfoDialog().also { onCancel() } }
@@ -737,7 +734,10 @@ object FileUtil {
                 Column(
                     modifier = Modifier
                         .padding(16.dp)
-                        .background(MaterialTheme.colorScheme.background, MaterialTheme.shapes.extraLarge),
+                        .background(
+                            MaterialTheme.colorScheme.background,
+                            MaterialTheme.shapes.extraLarge
+                        ),
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
@@ -799,7 +799,8 @@ object FileUtil {
                         }
 
                         Row(
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier
+                                .fillMaxWidth()
                                 .padding(bottom = 16.dp, end = 14.dp, start = 4.dp),
                             horizontalArrangement = Arrangement.SpaceEvenly
                         ) {

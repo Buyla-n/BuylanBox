@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -25,10 +26,8 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -42,8 +41,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.focus.focusTarget
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
@@ -72,7 +69,6 @@ class ShellTerminal : ComponentActivity() {
     fun ShTerminal() {
         val context = LocalContext.current
         val coroutineScope = rememberCoroutineScope()
-        val focusRequester = remember { FocusRequester() }
         val scrollState = rememberLazyListState()
         var commandInput by remember { mutableStateOf("") }
         val history = remember { mutableStateListOf<TerminalItem>() }
@@ -168,44 +164,34 @@ class ShellTerminal : ComponentActivity() {
                         Spacer(modifier = Modifier.height(4.dp))
                     }
                     item {
-                        OutlinedTextField(
-                            value = commandInput,
-                            onValueChange = { commandInput = it },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .focusRequester(focusRequester)
-                                .focusTarget(),
-                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                            keyboardActions = KeyboardActions(
-                                onSend = {
-                                    if (commandInput.isNotBlank()) {
-                                        executeCommand(commandInput)
-                                        commandInput = ""
-                                    }
-                                }
-                            ),
-                            singleLine = true,
-                            shape = MaterialTheme.shapes.large,
-                            colors = TextFieldDefaults.colors(
-                                focusedIndicatorColor = Color.Transparent,
-                                unfocusedIndicatorColor = Color.Transparent,
-                                focusedContainerColor = Color.Transparent,
-                                unfocusedContainerColor = Color.Transparent
-                            ),
-
-                        )
+                        val focusRequester = remember { FocusRequester() }
                         LaunchedEffect(Unit) {
                             focusRequester.requestFocus()
                         }
+                        BasicTextField(
+                            value = commandInput,
+                            onValueChange = { commandInput = it },
+                            keyboardActions = KeyboardActions(
+                                onNext = {
+                                    if (commandInput.isNotBlank()) {
+                                        executeCommand(commandInput)
+                                        commandInput = ""
+                                        focusRequester.requestFocus()
+                                    }
+                                }
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp)
+                                .focusRequester(focusRequester),
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                            singleLine = true
+                        )
                     }
                 }
 
 
             }
-        }
-
-        LaunchedEffect(Unit) {
-            focusRequester.requestFocus()
         }
     }
 

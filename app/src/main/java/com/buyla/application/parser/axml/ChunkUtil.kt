@@ -9,17 +9,10 @@ import java.io.IOException
  */
 object ChunkUtil {
 
-	@JvmStatic
 	fun readCheckType(reader: IntReader, expectedType: Int) {
 		val type = reader.readInt()
 		if (type != expectedType) {
-			throw IOException(
-                "Expected chunk of type 0x${expectedType.toString(16)}, read 0x${
-                    type.toString(
-                        16
-                    )
-                }."
-            )
+			throw IOException("Expected chunk of type 0x${expectedType.toString(16)}, read 0x${type.toString(16)}.")
 		}
 	}
 }

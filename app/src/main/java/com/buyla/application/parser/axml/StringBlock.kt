@@ -11,7 +11,7 @@ import java.io.IOException
  *
  * - implement get()
  */
-class StringBlock private constructor() {
+class StringBlock {
 	private lateinit var mStringOffsets: IntArray
 	private lateinit var mStrings: IntArray
 	private lateinit var mStyleOffsets: IntArray
@@ -67,31 +67,6 @@ class StringBlock private constructor() {
 	 * Returns string with style information (if any).
 	 */
 	operator fun get(index: Int): CharSequence? = getString(index)
-
-	/**
-	 * Finds index of the string.
-	 * Returns -1 if the string was not found.
-	 */
-	fun find(string: String?): Int {
-		if (string == null) return -1
-
-		for (i in mStringOffsets.indices) {
-			var offset = mStringOffsets[i]
-			val length = getShort(mStrings, offset)
-			if (length != string.length) continue
-
-			var j = 0
-			while (j < length) {
-				offset += 2
-				if (string[j] != getShort(mStrings, offset).toChar()) break
-				j++
-			}
-
-			if (j == length) return i
-		}
-
-		return -1
-	}
 
 	companion object {
 		private const val CHUNK_TYPE = 0x001C0001

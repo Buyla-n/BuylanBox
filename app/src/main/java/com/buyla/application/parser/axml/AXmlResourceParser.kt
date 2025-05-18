@@ -1,10 +1,7 @@
 package com.buyla.application.parser.axml
 
-import org.xmlpull.v1.XmlPullParser
-import org.xmlpull.v1.XmlPullParserException
 import java.io.IOException
 import java.io.InputStream
-import java.io.Reader
 
 /**
  * @author Dmitry Skiba (original Java version)
@@ -24,12 +21,17 @@ import java.io.Reader
  *
  * * check all methods in closed state
  */
-class AXmlResourceParser : XmlPullParser {
+class AXmlResourceParser {
 
 	fun open(stream: InputStream?) {
 		close()
 		if (stream != null) {
 			indexReader = IntReader(stream, false)
+			ChunkUtil.readCheckType(indexReader, CHUNK_AXML_FILE)
+			indexReader.skipInt()
+			stringBlocks = StringBlock.Companion.read(indexReader)
+			namespaces.increaseDepth()
+			operational = true
 		}
 	}
 
@@ -44,7 +46,7 @@ class AXmlResourceParser : XmlPullParser {
 		resetEventInfo()
 	}
 
-	override fun next(): Int {
+	fun next(): Int {
 		try {
 			doNext()
 			return axmlEvent
@@ -54,136 +56,44 @@ class AXmlResourceParser : XmlPullParser {
 		}
 	}
 
-	override fun nextTag(): Int {
-		var eventType = next()
-		if (eventType == XmlPullParser.TEXT && isWhitespace) {
-			eventType = next()
-		}
-		if (eventType != XmlPullParser.START_TAG && eventType != XmlPullParser.END_TAG) {
-			throw XmlPullParserException("Expected start or end tag.", this, null)
-		}
-		return eventType
-	}
-
-	override fun nextText(): String? {
-		require(eventType == XmlPullParser.START_TAG) { "Parser must be on START_TAG to read next text." }
-
-		return when (next()) {
-			XmlPullParser.TEXT -> {
-				val result = getText()
-				require(next() == XmlPullParser.END_TAG) { "Event TEXT must be immediately followed by END_TAG." }
-				result
-			}
-			XmlPullParser.END_TAG -> ""
-			else -> throw XmlPullParserException("Parser must be on START_TAG or TEXT to read text.", this, null)
-		}
-	}
-
-	override fun require(type: Int, namespace: String?, name: String?) {
-		if (type != eventType ||
-			(namespace != null && namespace != getNamespace()) ||
-			(name != null && name != getName())
-		) {
-			throw XmlPullParserException(XmlPullParser.TYPES[type] + " is expected.", this, null)
-		}
-	}
-
-	override fun getName(): String? {
-		if (intName == -1 || (axmlEvent != XmlPullParser.START_TAG && axmlEvent != XmlPullParser.END_TAG)) {
+	fun getName(): String? {
+		if (intName == -1 || (axmlEvent != startTag && axmlEvent != endTag)) {
 			return null
 		}
 		return stringBlocks.getString(intName)
 	}
 
-	override fun getText(): String? {
-		if (intName == -1 || axmlEvent != XmlPullParser.TEXT) {
+	fun getText(): String? {
+		if (intName == -1 || axmlEvent != typeText) {
 			return null
 		}
 		return stringBlocks.getString(intName)
 	}
 
-	override fun getTextCharacters(holderForStartAndLength: IntArray): CharArray? {
-		val text = getText()
-		if (text == null) {
-			return null
-		}
-		holderForStartAndLength[0] = 0
-		holderForStartAndLength[1] = text.length
-		val chars = CharArray(text.length)
-		text.toCharArray(chars, 0, 0, text.length)
-		return chars
-	}
-
-	override fun getAttributeNamespace(index: Int): String? {
-		val namespace = attributes[getAttributeOffset(index) + ATTRIBUTE_IX_NAMESPACE_URI]
-		return if (namespace == -1) "" else { stringBlocks.getString(namespace) }
-	}
-
-	override fun getAttributePrefix(index: Int): String? {
+	fun getAttributePrefix(index: Int): String? {
 		val prefix = namespaces.findPrefix(attributes[getAttributeOffset(index) + ATTRIBUTE_IX_NAMESPACE_URI])
 		return if (prefix == -1) "" else { stringBlocks.getString(prefix) }
 	}
 
-	override fun getAttributeName(index: Int): String {
+	fun getAttributeName(index: Int): String {
 		val name = attributes[getAttributeOffset(index) + ATTRIBUTE_IX_NAME]
 		return if (name == -1) "" else stringBlocks.getString(name)!!
 	}
 
-	override fun getAttributeValue(index: Int): String {
+	fun getAttributeValue(index: Int): String {
 		val offset = getAttributeOffset(index)
 		return if (attributes[offset + ATTRIBUTE_IX_VALUE_TYPE] == TypedValue.TYPE_STRING) stringBlocks.getString(attributes[offset + ATTRIBUTE_IX_VALUE_STRING])!! else ""
 	}
 
-	override fun nextToken() = next()
-	override fun getDepth() = namespaces.depth - 1
-	override fun getEventType() = axmlEvent
-	override fun getLineNumber() = lineNumberCount
-	override fun getNamespace() = stringBlocks.getString(namespaceUri)
-	override fun getPrefix() = stringBlocks.getString(namespaces.findPrefix(namespaceUri))
-	override fun getPositionDescription() = "XML line #$lineNumber"
-	override fun getNamespaceCount(depth: Int) = namespaces.getAccumulatedCount(depth)
-	override fun getNamespacePrefix(pos: Int) = stringBlocks.getString(namespaces.getPrefix(pos))
-	override fun getNamespaceUri(pos: Int) = stringBlocks.getString(namespaces.getUri(pos))
-	override fun getAttributeCount() = if (axmlEvent != XmlPullParser.START_TAG) { -1 } else { attributes.size / ATTRIBUTE_LENGTH }
-	override fun getAttributeValue(namespace: String?, attribute: String) = findAttribute(namespace, attribute).takeIf { it != -1 }?.let { getAttributeValue(it) } ?: ""
-	override fun getAttributeType(index: Int) = "CDATA"
-	override fun isAttributeDefault(index: Int) = false
-	override fun getInputEncoding() = null
-	override fun getColumnNumber() = -1
-	override fun getProperty(name: String?) = null
-	override fun isEmptyElementTag() = false
-	override fun isWhitespace() = false
-	override fun getFeature(feature: String?) = false
-	override fun defineEntityReplacementText(entityName: String?, replacementText: String?) = unsupported()
-	override fun setProperty(name: String?, value: Any?) = unsupported()
-	override fun setFeature(name: String?, value: Boolean) = unsupported()
-	override fun setInput(stream: InputStream?, inputEncoding: String?) = unsupported()
-	override fun setInput(reader: Reader?) = unsupported()
-	override fun getNamespace(prefix: String?): String? { throw RuntimeException("Method is not supported.") }
-
-	fun unsupported() { throw XmlPullParserException("Method is not supported.") }
+	fun getDepth() = namespaces.depth - 1
+	fun getPrefix() = stringBlocks.getString(namespaces.findPrefix(namespaceUri))
+	fun getNamespaceCount(depth: Int) = namespaces.getAccumulatedCount(depth)
+	fun getNamespacePrefix(pos: Int) = stringBlocks.getString(namespaces.getPrefix(pos))
+	fun getNamespaceUri(pos: Int) = stringBlocks.getString(namespaces.getUri(pos))
+	fun getAttributeCount() = if (axmlEvent != startTag) { -1 } else { attributes.size / ATTRIBUTE_LENGTH }
 	fun getAttributeValueType(index: Int) = attributes[getAttributeOffset(index) + ATTRIBUTE_IX_VALUE_TYPE]
 	fun getAttributeValueData(index: Int) = attributes[getAttributeOffset(index) + ATTRIBUTE_IX_VALUE_DATA]
 
-	/**
-	* Namespace stack, holds prefix+uri pairs, as well as
-	* depth information.
-	* All information is stored in one int[] array.
-	* Array consists of depth frames:
-	* Data=DepthFrame*;
-	* DepthFrame=Count+[Prefix+Uri]*+Count;
-	* Count='count of Prefix+Uri pairs';
-	* Yes, count is stored twice, to enable bottom-up traversal.
-	* increaseDepth adds depth frame, decreaseDepth removes it.
-	* push/pop operations operate only in current depth frame.
-	* decreaseDepth removes any remaining (not popped) namespace pairs.
-	* findXXX methods search all depth frames starting
-	* from the last namespace pair of current depth frame.
-	* All functions that operate with int, use -1 as 'invalid value'.
-	*
-	* !! functions expect 'prefix'+'uri' pairs, not 'uri'+'prefix' !!
-	*
-	*/
 	class NamespaceStack {
 		fun reset() {
 			dataLength = 0
@@ -350,7 +260,7 @@ class AXmlResourceParser : XmlPullParser {
 	}
 
 	private fun getAttributeOffset(index: Int): Int {
-		if (axmlEvent != XmlPullParser.START_TAG) {
+		if (axmlEvent != startTag) {
 			throw IndexOutOfBoundsException("Current event is not START_TAG.")
 		}
 		val offset = index * 5
@@ -358,25 +268,6 @@ class AXmlResourceParser : XmlPullParser {
 			throw IndexOutOfBoundsException("Invalid attribute index ($index).")
 		}
 		return offset
-	}
-
-	private fun findAttribute(namespace: String?, attribute: String?): Int {
-		if (attribute == null) {
-			return -1
-		}
-		val name = stringBlocks.find(attribute)
-		if (name == -1) {
-			return -1
-		}
-		val uri = if (namespace != null) stringBlocks.find(namespace) else -1
-		for (o in attributes.indices) {
-			if (name == attributes[o + ATTRIBUTE_IX_NAME] &&
-				(uri == -1 || uri == attributes[o + ATTRIBUTE_IX_NAMESPACE_URI])
-			) {
-				return o / ATTRIBUTE_LENGTH
-			}
-		}
-		return -1
 	}
 
 	private fun resetEventInfo() {
@@ -391,17 +282,8 @@ class AXmlResourceParser : XmlPullParser {
 	}
 
 	private fun doNext() {
-		// Delayed initialization.
-		if (stringBlocks == null) {
-			ChunkUtil.readCheckType(indexReader, CHUNK_AXML_FILE)
-			/*chunkSize*/
-			indexReader.skipInt()
-			stringBlocks = StringBlock.Companion.read(indexReader)
-			namespaces.increaseDepth()
-			operational = true
-		}
 
-		if (axmlEvent == XmlPullParser.END_DOCUMENT) {
+		if (axmlEvent == endDocument) {
 			return
 		}
 
@@ -415,11 +297,11 @@ class AXmlResourceParser : XmlPullParser {
 			}
 
 			// Fake END_DOCUMENT event.
-			if (event == XmlPullParser.END_TAG && namespaces.depth == 1 && namespaces.currentCount == 0) {
-				axmlEvent = XmlPullParser.END_DOCUMENT
+			if (event == endTag && namespaces.depth == 1 && namespaces.currentCount == 0) {
+				axmlEvent = endDocument
 				break
 			}
-            val chunkType: Int = if (event == XmlPullParser.START_DOCUMENT) {
+            val chunkType: Int = if (event == startDocument) {
                 // Fake event, see CHUNK_XML_START_TAG handler.
                 CHUNK_XML_START_TAG
             } else {
@@ -439,7 +321,7 @@ class AXmlResourceParser : XmlPullParser {
 					throw IOException("Invalid chunk type ($chunkType).")
 				}
 				chunkType == CHUNK_XML_START_TAG && event == -1 -> {
-					axmlEvent = XmlPullParser.START_DOCUMENT
+					axmlEvent = startDocument
 					break
 				}
 			}
@@ -468,13 +350,13 @@ class AXmlResourceParser : XmlPullParser {
 					intName = indexReader.readInt()
 					indexReader.skipInt()
 					indexReader.skipInt()
-					axmlEvent = XmlPullParser.TEXT
+					axmlEvent = typeText
 					break
 				}
 				CHUNK_XML_END_TAG -> {
 					namespaceUri = indexReader.readInt()
 					intName = indexReader.readInt()
-					axmlEvent = XmlPullParser.END_TAG
+					axmlEvent = endTag
 					decreaseDepth = true
 					break
 				}
@@ -496,31 +378,32 @@ class AXmlResourceParser : XmlPullParser {
 						i += ATTRIBUTE_LENGTH
 					}
 					namespaces.increaseDepth()
-					axmlEvent = XmlPullParser.START_TAG
+					axmlEvent = startTag
 					break
 				}
 			}
 		}
 	}
 
-	/**
-	* All values are essentially indices, e.g. intName is
-	* an index of name in stringBlocks.
-	*/
-	var indexReader: IntReader
+	lateinit var indexReader: IntReader
 	var operational = false
-	var stringBlocks: StringBlock
-	var resourceIDs: IntArray
+	lateinit var stringBlocks: StringBlock
+	var resourceIDs: IntArray = IntArray(0)
 	val namespaces = NamespaceStack()
 	var decreaseDepth = false
 	var axmlEvent = 0
 	var lineNumberCount = 0
 	var intName = 0
 	var namespaceUri = 0
-	var attributes: IntArray
+	var attributes: IntArray = IntArray(0)
 	var idAttribute = 0
 	var classAttribute = 0
 	var styleAttribute = 0
+	val startDocument: Int = 0
+	val endDocument: Int = 1
+	val startTag: Int = 2
+	val endTag: Int = 3
+	val typeText: Int = 4
 
 	init {
 		resetEventInfo()
